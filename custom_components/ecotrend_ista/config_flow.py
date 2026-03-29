@@ -9,6 +9,10 @@ from typing import Any
 
 from pyecotrend_ista.exception_classes import LoginError
 from pyecotrend_ista.pyecotrend_ista import PyEcotrendIsta
+try:
+    from pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
+except ImportError:  # pragma: no cover - fallback for older library versions
+    PyEcotrendIstaDK = None  # type: ignore[assignment]
 import requests
 import voluptuous as vol
 
@@ -25,8 +29,21 @@ _LOGGER = logging.getLogger(__name__)
 
 @staticmethod
 @core.callback
-def login_account(hass: core.HomeAssistant, data: MappingProxyType[str, Any], demo: bool = False) -> PyEcotrendIsta:
+def login_account(
+    hass: core.HomeAssistant,
+    data: MappingProxyType[str, Any],
+    demo: bool = False,
+) -> PyEcotrendIsta | PyEcotrendIstaDK:
     """Log into an Ecotrend-Ista account and return an account instance."""
+    if data.get(CONF_URL) == "dk_url":
+        if PyEcotrendIstaDK is None:
+            raise NotSupportedURL()
+        return PyEcotrendIstaDK(
+            email=data.get(CONF_EMAIL, None),
+            password=data.get(CONF_PASSWORD, None),
+            session=requests.Session(),
+        )
+
     account = PyEcotrendIsta(
         email=data.get(CONF_EMAIL, None),
         password=data.get(CONF_PASSWORD, None),
@@ -40,7 +57,7 @@ async def validate_input(hass: core.HomeAssistant, data: dict[str, Any]) -> dict
     """Validate the user input allows us to connect.
     Data has the keys from DATA_SCHEMA_EMAIL with values provided by the user.
     """  # noqa: D205
-    if CONF_URL not in data or data[CONF_URL] != "de_url":
+    if CONF_URL not in data or data[CONF_URL] not in ("de_url", "dk_url"):
         raise NotSupportedURL()
 
     # pylint: disable=no-value-for-parameter
@@ -66,6 +83,13 @@ async def validate_input(hass: core.HomeAssistant, data: dict[str, Any]) -> dict
     except requests.Timeout as error:
         _LOGGER.error(error)
         raise requests.Timeout from error
+
+    if data.get(CONF_URL) == "dk_url":
+        user_info = {}
+        if hasattr(account, "get_user_info"):
+            user_info = await hass.async_add_executor_job(account.get_user_info)
+        account_label = user_info.get("Username") or user_info.get("Name") or user_info.get("Email") or "DK"
+        return {"title": f"{MANUFACTURER} {account_label}"}
 
     return {
         "title": f"{MANUFACTURER} {account.get_support_code()} {'' if not login_info or login_info != 'Demo' else login_info}"
@@ -161,7 +185,7 @@ def validate_options_input(user_input: dict[str, Any]) -> dict[str, str]:
     """Validate the user input allows us to connect. Data has the keys from DATA_SCHEMA with values provided by the user."""
 
     errors = {}
-    if CONF_URL not in user_input or user_input[CONF_URL] != "de_url":
+    if CONF_URL not in user_input or user_input[CONF_URL] not in ("de_url", "dk_url"):
         errors["base"] = "not_allowed"
     return errors
 
