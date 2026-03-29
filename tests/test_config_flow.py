@@ -67,6 +67,27 @@ def test_validate_input_rejects_unknown_url(valid_user_input: dict[str, Any]) ->
         asyncio.run(validate_input(hass, invalid_input))
 
 
+def test_validate_input_accepts_dk_url(monkeypatch: pytest.MonkeyPatch, valid_user_input: dict[str, Any]) -> None:
+    """DK URL should be accepted by validation."""
+
+    hass = DummyHass()
+    dk_input = dict(valid_user_input)
+    dk_input["URL"] = "dk_url"
+
+    class DummyAccount:
+        def login(self) -> str:
+            return "Authenticated"
+
+        def get_user_info(self) -> dict[str, str]:
+            return {"Username": "DK123"}
+
+    monkeypatch.setattr(config_flow, "login_account", lambda *args, **kwargs: DummyAccount())
+
+    result = asyncio.run(validate_input(hass, dk_input))
+
+    assert result == {"title": "Ista DK123"}
+
+
 def test_validate_input_propagates_login_error(monkeypatch: pytest.MonkeyPatch, valid_user_input: dict[str, Any]) -> None:
     """Errors from the API login should bubble up for the flow to handle."""
 
@@ -86,6 +107,7 @@ def test_validate_options_input_returns_no_errors(valid_user_input: dict[str, An
     """The option validation should accept the supported URL."""
 
     assert validate_options_input({"URL": "de_url"}) == {}
+    assert validate_options_input({"URL": "dk_url"}) == {}
 
 
 def test_validate_options_input_rejects_invalid_url() -> None:
