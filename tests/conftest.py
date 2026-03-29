@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import types
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -102,6 +103,29 @@ const.CONF_PASSWORD = "password"
 const.CONF_SCAN_INTERVAL = "scan_interval"
 
 
+class EntityCategory:
+    """Stub enum-like class for entity categories."""
+
+    DIAGNOSTIC = "diagnostic"
+
+
+class UnitOfEnergy:
+    """Stub enum-like class for energy units."""
+
+    KILO_WATT_HOUR = "kWh"
+
+
+class UnitOfVolume:
+    """Stub enum-like class for volume units."""
+
+    CUBIC_METERS = "m3"
+
+
+const.EntityCategory = EntityCategory
+const.UnitOfEnergy = UnitOfEnergy
+const.UnitOfVolume = UnitOfVolume
+
+
 class Platform(str, Enum):
     """Mimic Home Assistant's Platform enum with the attributes required by the integration."""
 
@@ -114,6 +138,78 @@ helpers = _ensure_module("homeassistant.helpers")
 selector = _ensure_module("homeassistant.helpers.selector")
 entity_registry = _ensure_module("homeassistant.helpers.entity_registry")
 helpers.entity_registry = entity_registry
+device_registry = _ensure_module("homeassistant.helpers.device_registry")
+dispatcher = _ensure_module("homeassistant.helpers.dispatcher")
+entity_platform = _ensure_module("homeassistant.helpers.entity_platform")
+
+
+class DeviceInfo(dict):
+    """Dictionary-like DeviceInfo stand-in."""
+
+
+def async_dispatcher_connect(_hass: Any, _signal: str, _callback: Any):
+    """Return a no-op unsubscribe callback."""
+
+    return lambda: None
+
+
+device_registry.DeviceInfo = DeviceInfo
+dispatcher.async_dispatcher_connect = async_dispatcher_connect
+entity_platform.AddEntitiesCallback = Any
+helpers.device_registry = device_registry
+helpers.dispatcher = dispatcher
+helpers.entity_platform = entity_platform
+
+components = _ensure_module("homeassistant.components")
+components_sensor = _ensure_module("homeassistant.components.sensor")
+
+
+class SensorDeviceClass:
+    """Stub enum-like class for sensor device classes."""
+
+    WATER = "water"
+    MONETARY = "monetary"
+    ENERGY = "energy"
+
+
+class SensorStateClass:
+    """Stub enum-like class for sensor state classes."""
+
+    MEASUREMENT = "measurement"
+    TOTAL = "total"
+    TOTAL_INCREASING = "total_increasing"
+
+
+@dataclass
+class SensorEntityDescription:
+    """Dataclass-compatible sensor description stub."""
+
+    key: str | None = None
+    native_unit_of_measurement: str | None = None
+    device_class: str | None = None
+    state_class: str | None = None
+    entity_category: str | None = None
+    icon: str | None = None
+
+
+class SensorEntity:
+    """Minimal SensorEntity stub."""
+
+
+class RestoreSensor:
+    """Minimal RestoreSensor stub."""
+
+    async def async_get_last_sensor_data(self):
+        """Return no restored state by default."""
+        return None
+
+
+components_sensor.SensorDeviceClass = SensorDeviceClass
+components_sensor.SensorStateClass = SensorStateClass
+components_sensor.SensorEntityDescription = SensorEntityDescription
+components_sensor.SensorEntity = SensorEntity
+components_sensor.RestoreSensor = RestoreSensor
+components.sensor = components_sensor
 
 
 class RegistryEntry:
@@ -247,11 +343,29 @@ class DataUpdateCoordinator:
         self.data = data
 
 
+class CoordinatorEntity:
+    """Minimal CoordinatorEntity stub."""
+
+    def __class_getitem__(cls, _item: Any):
+        """Support generic subscription used by typing annotations."""
+        return cls
+
+    def __init__(self, coordinator: DataUpdateCoordinator) -> None:
+        self.coordinator = coordinator
+        self.hass = getattr(coordinator, "hass", None)
+
+    async def async_added_to_hass(self) -> None:
+        """Placeholder lifecycle hook."""
+        return None
+
+
 update_coordinator.DataUpdateCoordinator = DataUpdateCoordinator
+update_coordinator.CoordinatorEntity = CoordinatorEntity
 helpers.update_coordinator = update_coordinator
 
 helpers_typing = _ensure_module("homeassistant.helpers.typing")
 helpers_typing.ConfigType = dict[str, Any]
+helpers_typing.StateType = Any
 
 data_entry_flow = _ensure_module("homeassistant.data_entry_flow")
 data_entry_flow.FlowResult = dict
@@ -311,7 +425,10 @@ class PyEcotrendIsta:  # pragma: no cover - replaced by tests when required
     def get_support_code(self) -> str:  # pragma: no cover - default helper
         return "SC"
 
-    def getUUIDs(self) -> list[str]:  # pragma: no cover - not used
+    def getUUIDs(self) -> list[str]:  # pragma: no cover - backwards compatibility helper
+        return []
+
+    def get_uuids(self) -> list[str]:  # pragma: no cover - not used
         return []
 
     def consum_raw(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:  # pragma: no cover - not used
@@ -320,9 +437,25 @@ class PyEcotrendIsta:  # pragma: no cover - replaced by tests when required
 
 py_module.PyEcotrendIsta = PyEcotrendIsta
 
+py_module_dk = _ensure_module("pyecotrend_ista.pyecotrend_ista_dk")
+
+
+class PyEcotrendIstaDK:  # pragma: no cover - replaced by tests when required
+    """Minimal stub for the DK API client."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.kwargs = kwargs
+
+    def login(self) -> None:  # pragma: no cover - replaced by monkeypatch in tests
+        raise NotImplementedError
+
+
+py_module_dk.PyEcotrendIstaDK = PyEcotrendIstaDK
+
 pyecotrend_ista.exception_classes = exception_classes
 pyecotrend_ista.helper_object_de = helper_object_de
 pyecotrend_ista.pyecotrend_ista = py_module
+pyecotrend_ista.pyecotrend_ista_dk = py_module_dk
 
 
 # Provide a light-weight voluptuous substitute used by the integration during imports.
