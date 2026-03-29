@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import datetime
+from dataclasses import dataclass
 import logging
 from typing import Any, cast
 
 from pyecotrend_ista.helper_object_de import CustomRaw
 from pyecotrend_ista.pyecotrend_ista import PyEcotrendIsta
 
-from homeassistant.components.sensor import RestoreSensor, SensorEntity
+from homeassistant.components.sensor import RestoreSensor, SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -33,6 +34,49 @@ from .coordinator import IstaDataUpdateCoordinator
 from .entity import SENSOR_TYPES, EcotrendSensorEntityDescription
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class DkSensorDescription:
+    """Definition of a DK sensor."""
+
+    key: str
+    name: str
+    icon: str
+    unit_key: str
+    device_class: SensorDeviceClass | None = None
+    state_class: SensorStateClass | None = SensorStateClass.MEASUREMENT
+
+
+DK_SENSOR_TYPES: tuple[DkSensorDescription, ...] = (
+    DkSensorDescription(
+        key="electricity_consumption",
+        name="Electricity Consumption",
+        icon="mdi:lightning-bolt",
+        unit_key="electricity_unit",
+        device_class=SensorDeviceClass.ENERGY,
+    ),
+    DkSensorDescription(
+        key="electricity_economy",
+        name="Electricity Economy",
+        icon="mdi:cash",
+        unit_key="currency_unit",
+        device_class=SensorDeviceClass.MONETARY,
+    ),
+    DkSensorDescription(
+        key="heat_consumption",
+        name="Heat Consumption",
+        icon="mdi:radiator",
+        unit_key="heat_unit",
+    ),
+    DkSensorDescription(
+        key="heat_economy",
+        name="Heat Economy",
+        icon="mdi:cash",
+        unit_key="currency_unit",
+        device_class=SensorDeviceClass.MONETARY,
+    ),
+)
 
 
 class EcotrendBaseEntityV3(CoordinatorEntity[IstaDataUpdateCoordinator], RestoreSensor):
@@ -125,6 +169,53 @@ class EcotrendSensorV3(EcotrendBaseEntityV3, SensorEntity):
         return dict(data, **{})
 
 
+class EcotrendDKSensor(CoordinatorEntity[IstaDataUpdateCoordinator], SensorEntity):
+    """Sensor entity class for ista EcoTrend DK."""
+
+    _attr_force_update = False
+
+    def __init__(
+        self,
+        coordinator: IstaDataUpdateCoordinator,
+        description: DkSensorDescription,
+        uuid: str,
+    ) -> None:
+        """Initialize the DK sensor."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self.uuid = uuid
+        self._attr_name = f"{description.name} {self.uuid}".strip()
+        self._attr_unique_id = f"{description.key}_{self.uuid}"
+        self._attr_icon = description.icon
+        self._attr_device_class = description.device_class
+        self._attr_state_class = description.state_class
+        self._attr_attribution = f"Data provided by {URL_SELECTORS.get(self.coordinator.config_entry.options.get(CONF_URL))}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, self.uuid)},
+            manufacturer=MANUFACTURER,
+            model="ista DK consumption & costs",
+            name=f"{DEVICE_NAME} DK",
+        )
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return unit of measurement for the DK sensor."""
+        payload = (self.coordinator.data or {}).get(self.uuid, {})
+        return payload.get(self.entity_description.unit_key)
+
+    @property
+    def native_value(self) -> StateType:
+        """Return current DK sensor value."""
+        payload = (self.coordinator.data or {}).get(self.uuid, {})
+        return cast(StateType, payload.get(self.entity_description.key))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra DK sensor attributes."""
+        payload = (self.coordinator.data or {}).get(self.uuid, {})
+        return {"user_info": payload.get("user_info")}
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -132,11 +223,18 @@ async def async_setup_entry(
 ) -> None:
     """Set up the ista EcoTrend Version 3 sensors from the config entry."""
     coordinator: IstaDataUpdateCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    entities: list = []
+
+    if config_entry.options.get(CONF_URL, "de_url") == "dk_url":
+        uuid = "dk"
+        for description in DK_SENSOR_TYPES:
+            entities.append(EcotrendDKSensor(coordinator, description, uuid))
+        async_add_entities(entities)
+        return
 
     controller = coordinator.controller
 
-    for uuid in controller.get_uuids():
-        entities: list = []
+    for uuid in coordinator.get_uuids():
         consum_raw: CustomRaw = CustomRaw.from_dict(
             await hass.async_add_executor_job(
                 controller.consum_raw,
