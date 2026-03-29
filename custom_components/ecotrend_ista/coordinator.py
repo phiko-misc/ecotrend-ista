@@ -11,6 +11,10 @@ from typing import Any
 
 from pyecotrend_ista.helper_object_de import CustomRaw
 from pyecotrend_ista.pyecotrend_ista import PyEcotrendIsta
+try:
+    from pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
+except ImportError:  # pragma: no cover - fallback for older library versions
+    PyEcotrendIstaDK = Any  # type: ignore[assignment]
 import requests
 
 from homeassistant.config_entries import ConfigEntry
@@ -18,7 +22,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .config_flow import login_account
-from .const import CONF_UPDATE_INTERVAL, DOMAIN
+from .const import CONF_UPDATE_INTERVAL, CONF_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +53,7 @@ async def create_directory_file(hass: HomeAssistant, consum_raw: CustomRaw, supp
 class IstaDataUpdateCoordinator(DataUpdateCoordinator):
     """Coordinator for ista EcoTrend Version 3."""
 
-    controller: PyEcotrendIsta
+    controller: PyEcotrendIsta | PyEcotrendIstaDK
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize ista EcoTrend Version 3 data updater."""
@@ -75,6 +79,62 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
             self._entry.options.get("dev_demo", False),
         )
 
+    def _get_entry_url(self) -> str:
+        """Return the selected login URL key for this entry."""
+        return self._entry.options.get(CONF_URL, self._entry.data.get(CONF_URL, "de_url"))
+
+    def _is_dk_url(self) -> bool:
+        """Return whether this entry uses the DK backend."""
+        return self._get_entry_url() == "dk_url"
+
+    def get_uuids(self) -> list[str]:
+        """Return available identifiers for entities.
+
+        DE accounts expose multiple consumption UUIDs. DK currently uses one logical endpoint set,
+        so we expose a synthetic single UUID.
+        """
+        if self._is_dk_url():
+            return ["dk"]
+        return self.controller.get_uuids()
+
+    @staticmethod
+    def _extract_latest_numeric(records: Any, field: str) -> float | None:
+        """Return the latest non-null numeric value from a DK graph response list."""
+        if not isinstance(records, list):
+            return None
+        for item in reversed(records):
+            if not isinstance(item, dict):
+                continue
+            value = item.get(field)
+            if isinstance(value, (int, float)):
+                return float(value)
+        return None
+
+    def _fetch_dk_data(self) -> dict[str, dict[str, Any]]:
+        """Fetch the DK data shape used by DK sensor entities."""
+        meter_types = self.controller.get_meter_types()
+        electricity_consumption_day = self.controller.get_electricity_consumption_day()
+        electricity_economy_day = self.controller.get_electricity_economy_day()
+        heat_consumption_day = self.controller.get_heat_consumption_day()
+        heat_economy_day = self.controller.get_heat_economy_day()
+        user_info = self.controller.get_user_info()
+
+        electricity_unit = (meter_types.get("electricity") or {}).get("unit")
+        heat_unit = (meter_types.get("heat") or {}).get("unit")
+
+        return {
+            "dk": {
+                "electricity_consumption": self._extract_latest_numeric(electricity_consumption_day, "value"),
+                "electricity_economy": self._extract_latest_numeric(electricity_economy_day, "priceValue"),
+                "heat_consumption": self._extract_latest_numeric(heat_consumption_day, "value"),
+                "heat_economy": self._extract_latest_numeric(heat_economy_day, "priceValue"),
+                "electricity_unit": electricity_unit,
+                "heat_unit": heat_unit,
+                "currency_unit": "kr",
+                "user_info": user_info,
+            }
+        }
+
     async def init(self) -> None:
         """Initialize the controller and perform the login."""
         self.set_controller()
@@ -86,7 +146,12 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
             if self.data is None:
                 self.data = {}
             await self.init()
-            for uuid in self.controller.get_uuids():
+            if self._is_dk_url():
+                self.data = await self.hass.async_add_executor_job(self._fetch_dk_data)
+                self.async_set_updated_data(self.data)
+                return self.data
+
+            for uuid in self.get_uuids():
                 _consum_raw: dict[str, Any] = await self.hass.async_add_executor_job(
                     self.controller.consum_raw,
                     [
