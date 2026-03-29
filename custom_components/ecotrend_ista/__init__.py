@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DATA_HASS_CONFIG, DOMAIN
+from .const import CONF_URL, DATA_HASS_CONFIG, DOMAIN
 from .const_schema import DEFAULT_DATA_SCHEMA
 from .coordinator import IstaDataUpdateCoordinator
 
@@ -52,13 +52,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("Configure based on config entry %s", entry.entry_id)
     coordinator = IstaDataUpdateCoordinator(hass, entry)
     await coordinator.init()
-    for uuid in coordinator.controller.get_uuids():
-        await _async_migrate_entries(
-            hass,
-            entry,
-            uuid,
-            coordinator.controller.get_support_code(),
-        )
+    if entry.options.get(CONF_URL, "de_url") != "dk_url":
+        for uuid in coordinator.get_uuids():
+            await _async_migrate_entries(
+                hass,
+                entry,
+                uuid,
+                coordinator.controller.get_support_code(),
+            )
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})

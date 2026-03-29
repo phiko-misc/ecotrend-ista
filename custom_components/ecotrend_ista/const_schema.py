@@ -31,6 +31,7 @@ from .const import (
 
 URL_SELECTORS = {
     "de_url": "https://ecotrend.ista.de/",
+    "dk_url": "https://istaonlinebeta.dk/",
     # "nl_url": "https://mijn.ista.nl/",
     # "fr_url": "https://ma-consommation.ista.lu/",
 }
