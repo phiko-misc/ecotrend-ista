@@ -25,12 +25,26 @@ from .config_flow import login_account
 from .const import CONF_UPDATE_INTERVAL, CONF_URL, DOMAIN
 from .const import (
     CONF_TYPE_ELECTRICITY_CASH,
+    CONF_TYPE_ELECTRICITY_CASH_DAY,
     CONF_TYPE_ELECTRICITY_CASH_BILLING,
+    CONF_TYPE_ELECTRICITY_CASH_WEEK,
+    CONF_TYPE_ELECTRICITY_CASH_MONTH,
+    CONF_TYPE_ELECTRICITY_CASH_YEAR,
     CONF_TYPE_ELECTRICITY_CONSUMPTION,
     CONF_TYPE_ELECTRICITY_CONSUMPTION_DAY,
+    CONF_TYPE_ELECTRICITY_CONSUMPTION_WEEK,
+    CONF_TYPE_ELECTRICITY_CONSUMPTION_MONTH,
+    CONF_TYPE_ELECTRICITY_CONSUMPTION_YEAR,
     CONF_TYPE_HEATING_CONSUMPTION,
     CONF_TYPE_HEATING_CONSUMPTION_DAY,
+    CONF_TYPE_HEATING_CONSUMPTION_WEEK,
+    CONF_TYPE_HEATING_CONSUMPTION_MONTH,
+    CONF_TYPE_HEATING_CONSUMPTION_YEAR,
+    CONF_TYPE_HEATING_CASH_DAY,
     CONF_TYPE_HEATING_CASH_BILLING,
+    CONF_TYPE_HEATING_CASH_WEEK,
+    CONF_TYPE_HEATING_CASH_MONTH,
+    CONF_TYPE_HEATING_CASH_YEAR,
     CONF_TYPE_WATER_CASH,
 )
 
@@ -139,14 +153,35 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch the DK data shape used by DK sensor entities."""
         meter_types = self._safe_dk_call("get_meter_types", {})
         currency_unit = self._safe_dk_call("get_currency_code", "DKK")
+        
+        # Electricity consumption
         electricity_consumption_billing = self._safe_dk_call("get_electricity_consumption_billing", [])
         electricity_consumption_day = self._safe_dk_call("get_electricity_consumption_day", [])
-        electricity_economy_billing = self._safe_dk_call("get_electricity_economy_billing", [])
+        electricity_consumption_week = self._safe_dk_call("get_electricity_consumption_week", [])
+        electricity_consumption_month = self._safe_dk_call("get_electricity_consumption_month", [])
+        electricity_consumption_year = self._safe_dk_call("get_electricity_consumption_year", [])
+        
+        # Electricity costs
         electricity_economy_day = self._safe_dk_call("get_electricity_economy_day", [])
+        electricity_economy_billing = self._safe_dk_call("get_electricity_economy_billing", [])
+        electricity_economy_week = self._safe_dk_call("get_electricity_economy_week", [])
+        electricity_economy_month = self._safe_dk_call("get_electricity_economy_month", [])
+        electricity_economy_year = self._safe_dk_call("get_electricity_economy_year", [])
+        
+        # Heat consumption
         heat_consumption_billing = self._safe_dk_call("get_heat_consumption_billing", [])
         heat_consumption_day = self._safe_dk_call("get_heat_consumption_day", [])
-        heat_economy_billing = self._safe_dk_call("get_heat_economy_billing", [])
+        heat_consumption_week = self._safe_dk_call("get_heat_consumption_week", [])
+        heat_consumption_month = self._safe_dk_call("get_heat_consumption_month", [])
+        heat_consumption_year = self._safe_dk_call("get_heat_consumption_year", [])
+        
+        # Heat costs
         heat_economy_day = self._safe_dk_call("get_heat_economy_day", [])
+        heat_economy_billing = self._safe_dk_call("get_heat_economy_billing", [])
+        heat_economy_week = self._safe_dk_call("get_heat_economy_week", [])
+        heat_economy_month = self._safe_dk_call("get_heat_economy_month", [])
+        heat_economy_year = self._safe_dk_call("get_heat_economy_year", [])
+        
         user_info = self._safe_dk_call("get_user_info", {})
 
         electricity_unit = (meter_types.get("electricity") or {}).get("unit")
@@ -156,13 +191,26 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
             "dk": {
                 CONF_TYPE_ELECTRICITY_CONSUMPTION: self._extract_latest_numeric(electricity_consumption_billing, "value"),
                 CONF_TYPE_ELECTRICITY_CONSUMPTION_DAY: self._extract_latest_numeric(electricity_consumption_day, "value"),
+                CONF_TYPE_ELECTRICITY_CONSUMPTION_WEEK: self._extract_latest_numeric(electricity_consumption_week, "value"),
+                CONF_TYPE_ELECTRICITY_CONSUMPTION_MONTH: self._extract_latest_numeric(electricity_consumption_month, "value"),
+                CONF_TYPE_ELECTRICITY_CONSUMPTION_YEAR: self._extract_latest_numeric(electricity_consumption_year, "value"),
+                CONF_TYPE_ELECTRICITY_CASH_DAY: self._extract_latest_numeric(electricity_economy_day, "priceValue"),
                 CONF_TYPE_ELECTRICITY_CASH: self._extract_latest_numeric(electricity_economy_day, "priceValue"),
                 CONF_TYPE_ELECTRICITY_CASH_BILLING: self._extract_latest_numeric(electricity_economy_billing, "priceValue"),
+                CONF_TYPE_ELECTRICITY_CASH_WEEK: self._extract_latest_numeric(electricity_economy_week, "priceValue"),
+                CONF_TYPE_ELECTRICITY_CASH_MONTH: self._extract_latest_numeric(electricity_economy_month, "priceValue"),
+                CONF_TYPE_ELECTRICITY_CASH_YEAR: self._extract_latest_numeric(electricity_economy_year, "priceValue"),
                 CONF_TYPE_HEATING_CONSUMPTION: self._extract_latest_numeric(heat_consumption_billing, "value"),
                 CONF_TYPE_HEATING_CONSUMPTION_DAY: self._extract_latest_numeric(heat_consumption_day, "value"),
-                # Keep key aligned with existing DK heat-economy sensor description.
+                CONF_TYPE_HEATING_CONSUMPTION_WEEK: self._extract_latest_numeric(heat_consumption_week, "value"),
+                CONF_TYPE_HEATING_CONSUMPTION_MONTH: self._extract_latest_numeric(heat_consumption_month, "value"),
+                CONF_TYPE_HEATING_CONSUMPTION_YEAR: self._extract_latest_numeric(heat_consumption_year, "value"),
+                CONF_TYPE_HEATING_CASH_DAY: self._extract_latest_numeric(heat_economy_day, "priceValue"),
                 CONF_TYPE_WATER_CASH: self._extract_latest_numeric(heat_economy_day, "priceValue"),
                 CONF_TYPE_HEATING_CASH_BILLING: self._extract_latest_numeric(heat_economy_billing, "priceValue"),
+                CONF_TYPE_HEATING_CASH_WEEK: self._extract_latest_numeric(heat_economy_week, "priceValue"),
+                CONF_TYPE_HEATING_CASH_MONTH: self._extract_latest_numeric(heat_economy_month, "priceValue"),
+                CONF_TYPE_HEATING_CASH_YEAR: self._extract_latest_numeric(heat_economy_year, "priceValue"),
                 "electricity_unit": electricity_unit,
                 "heat_unit": heat_unit,
                 "currency_unit": currency_unit,
