@@ -14,6 +14,7 @@ from pyecotrend_ista.pyecotrend_ista import PyEcotrendIsta
 from homeassistant.components.sensor import RestoreSensor, SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -31,52 +32,9 @@ from .const import (
 )
 from .const_schema import URL_SELECTORS
 from .coordinator import IstaDataUpdateCoordinator
-from .entity import SENSOR_TYPES, EcotrendSensorEntityDescription
+from .entity import SENSOR_TYPES, EcotrendSensorEntityDescription, DK_SENSOR_TYPES, DkSensorDescription
 
 _LOGGER = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class DkSensorDescription:
-    """Definition of a DK sensor."""
-
-    key: str
-    name: str
-    icon: str
-    unit_key: str
-    device_class: SensorDeviceClass | None = None
-    state_class: SensorStateClass | None = SensorStateClass.MEASUREMENT
-
-
-DK_SENSOR_TYPES: tuple[DkSensorDescription, ...] = (
-    DkSensorDescription(
-        key="electricity_consumption",
-        name="Electricity Consumption",
-        icon="mdi:lightning-bolt",
-        unit_key="electricity_unit",
-        device_class=SensorDeviceClass.ENERGY,
-    ),
-    DkSensorDescription(
-        key="electricity_economy",
-        name="Electricity Economy",
-        icon="mdi:cash",
-        unit_key="currency_unit",
-        device_class=SensorDeviceClass.MONETARY,
-    ),
-    DkSensorDescription(
-        key="heat_consumption",
-        name="Heat Consumption",
-        icon="mdi:radiator",
-        unit_key="heat_unit",
-    ),
-    DkSensorDescription(
-        key="heat_economy",
-        name="Heat Economy",
-        icon="mdi:cash",
-        unit_key="currency_unit",
-        device_class=SensorDeviceClass.MONETARY,
-    ),
-)
 
 
 class EcotrendBaseEntityV3(CoordinatorEntity[IstaDataUpdateCoordinator], RestoreSensor):
@@ -184,11 +142,12 @@ class EcotrendDKSensor(CoordinatorEntity[IstaDataUpdateCoordinator], SensorEntit
         super().__init__(coordinator)
         self.entity_description = description
         self.uuid = uuid
-        self._attr_name = f"{description.name} {self.uuid}".strip()
+        self._attr_name = f"{description.display_name}".strip()
         self._attr_unique_id = f"{description.key}_{self.uuid}"
         self._attr_icon = description.icon
         self._attr_device_class = description.device_class
         self._attr_state_class = description.state_class
+        self._attr_entity_category = description.entity_category
         self._attr_attribution = f"Data provided by {URL_SELECTORS.get(self.coordinator.config_entry.options.get(CONF_URL))}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self.uuid)},

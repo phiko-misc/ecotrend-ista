@@ -23,6 +23,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .config_flow import login_account
 from .const import CONF_UPDATE_INTERVAL, CONF_URL, DOMAIN
+from .const import (
+    CONF_TYPE_ELECTRICITY_CASH,
+    CONF_TYPE_ELECTRICITY_CONSUMPTION,
+    CONF_TYPE_HEATING_CONSUMPTION,
+    CONF_TYPE_WATER_CASH,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,7 +78,10 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
         This method initializes the PyEcotrendIsta controller instance with the provided email, password,
         and other necessary configurations.
         """
-        data = self._entry.data
+        data = {
+            **self._entry.data,
+            CONF_URL: self._get_entry_url(),
+        }
         self.controller = login_account(
             self.hass,
             data,
@@ -110,27 +119,41 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
                 return float(value)
         return None
 
+    def _safe_dk_call(self, method_name: str, default: Any) -> Any:
+        """Call a DK controller method safely and return default on failure."""
+        method = getattr(self.controller, method_name, None)
+        if method is None:
+            return default
+
+        try:
+            return method()
+        except Exception as error:  # pylint: disable=broad-except
+            _LOGGER.warning("DK endpoint '%s' failed: %s", method_name, error)
+            return default
+
     def _fetch_dk_data(self) -> dict[str, dict[str, Any]]:
         """Fetch the DK data shape used by DK sensor entities."""
-        meter_types = self.controller.get_meter_types()
-        electricity_consumption_day = self.controller.get_electricity_consumption_day()
-        electricity_economy_day = self.controller.get_electricity_economy_day()
-        heat_consumption_day = self.controller.get_heat_consumption_day()
-        heat_economy_day = self.controller.get_heat_economy_day()
-        user_info = self.controller.get_user_info()
+        meter_types = self._safe_dk_call("get_meter_types", {})
+        currency_unit = self._safe_dk_call("get_currency_code", "DKK")
+        electricity_consumption_day = self._safe_dk_call("get_electricity_consumption_day", [])
+        electricity_economy_day = self._safe_dk_call("get_electricity_economy_day", [])
+        heat_consumption_day = self._safe_dk_call("get_heat_consumption_day", [])
+        heat_economy_day = self._safe_dk_call("get_heat_economy_day", [])
+        user_info = self._safe_dk_call("get_user_info", {})
 
         electricity_unit = (meter_types.get("electricity") or {}).get("unit")
         heat_unit = (meter_types.get("heat") or {}).get("unit")
 
         return {
             "dk": {
-                "electricity_consumption": self._extract_latest_numeric(electricity_consumption_day, "value"),
-                "electricity_economy": self._extract_latest_numeric(electricity_economy_day, "priceValue"),
-                "heat_consumption": self._extract_latest_numeric(heat_consumption_day, "value"),
-                "heat_economy": self._extract_latest_numeric(heat_economy_day, "priceValue"),
+                CONF_TYPE_ELECTRICITY_CONSUMPTION: self._extract_latest_numeric(electricity_consumption_day, "value"),
+                CONF_TYPE_ELECTRICITY_CASH: self._extract_latest_numeric(electricity_economy_day, "priceValue"),
+                CONF_TYPE_HEATING_CONSUMPTION: self._extract_latest_numeric(heat_consumption_day, "value"),
+                # Keep key aligned with existing DK heat-economy sensor description.
+                CONF_TYPE_WATER_CASH: self._extract_latest_numeric(heat_economy_day, "priceValue"),
                 "electricity_unit": electricity_unit,
                 "heat_unit": heat_unit,
-                "currency_unit": "kr",
+                "currency_unit": currency_unit,
                 "user_info": user_info,
             }
         }
@@ -148,6 +171,7 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
             await self.init()
             if self._is_dk_url():
                 self.data = await self.hass.async_add_executor_job(self._fetch_dk_data)
+                self.logger.debug("Fetched DK data: %s", self.data)
                 self.async_set_updated_data(self.data)
                 return self.data
 

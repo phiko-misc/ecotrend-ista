@@ -18,6 +18,10 @@ from .const import (
     CONF_TYPE_WATER,
     CONF_TYPE_WATER_CASH,
     CONF_TYPE_WATER_CUSTOM,
+    CONF_TYPE_ELECTRICITY,
+    CONF_TYPE_ELECTRICITY_CONSUMPTION,
+    CONF_TYPE_ELECTRICITY_CASH,
+    CONF_TYPE_HEATING_CONSUMPTION,
 )
 
 
@@ -115,5 +119,64 @@ SENSOR_TYPES: tuple[EcotrendSensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:radiator",
         costs_or_cosums="consums",
+    ),
+)
+
+
+@dataclass
+class DkSensorDescription(SensorEntityDescription):
+    """Describes a DK sensor entity."""
+
+    data_type: Literal["electricity", "heating"] = ""
+    costs_or_cosums: Literal["consums", "costs"] = "consums"
+    unit_key: str = ""
+    display_name: str = ""
+    entity_category: EntityCategory | None = None
+    state_class: SensorStateClass | None = None
+
+
+DK_SENSOR_TYPES: tuple[DkSensorDescription, ...] = (
+    DkSensorDescription(
+        key=CONF_TYPE_ELECTRICITY_CONSUMPTION,
+        icon="mdi:lightning-bolt",
+        unit_key="electricity_unit",
+        data_type=CONF_TYPE_ELECTRICITY,
+        costs_or_cosums="consums",
+        device_class=SensorDeviceClass.ENERGY,
+        display_name="Electricity Consumption",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    DkSensorDescription(
+        key=CONF_TYPE_ELECTRICITY_CASH,
+        icon="mdi:cash",
+        unit_key="currency_unit",
+        data_type=CONF_TYPE_ELECTRICITY,
+        costs_or_cosums="costs",
+        device_class=SensorDeviceClass.MONETARY,
+        display_name="Electricity Economy",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.TOTAL,
+    ),
+    DkSensorDescription(
+        key=CONF_TYPE_HEATING_CONSUMPTION,
+        icon="mdi:radiator",
+        unit_key="heat_unit",
+        data_type=CONF_TYPE_HEATING,
+        costs_or_cosums="consums",
+        display_name="Heat Consumption",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    DkSensorDescription(
+        key=CONF_TYPE_WATER_CASH,
+        icon="mdi:cash",
+        unit_key="currency_unit",
+        data_type=CONF_TYPE_HEATING,
+        costs_or_cosums="costs",
+        device_class=SensorDeviceClass.MONETARY,
+        display_name="Heat Economy",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.TOTAL,
     ),
 )

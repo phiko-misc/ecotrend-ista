@@ -60,11 +60,17 @@ async def validate_input(hass: core.HomeAssistant, data: dict[str, Any]) -> dict
     if CONF_URL not in data or data[CONF_URL] not in ("de_url", "dk_url"):
         raise NotSupportedURL()
 
-    # pylint: disable=no-value-for-parameter
-    try:
-        vol.Email()(data.get(CONF_EMAIL))
-    except vol.Invalid as error:
-        raise vol.Invalid(error) from error
+    # DK uses a username/code instead of an email address.
+    if data.get(CONF_URL) == "dk_url":
+        username = data.get(CONF_EMAIL, "")
+        if not isinstance(username, str) or not username.strip():
+            raise vol.Invalid("Missing username/code")
+    else:
+        # pylint: disable=no-value-for-parameter
+        try:
+            vol.Email()(data.get(CONF_EMAIL))
+        except vol.Invalid as error:
+            raise vol.Invalid(error) from error
 
     account = login_account(hass, data)
 

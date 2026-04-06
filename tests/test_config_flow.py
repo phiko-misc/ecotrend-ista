@@ -88,6 +88,30 @@ def test_validate_input_accepts_dk_url(monkeypatch: pytest.MonkeyPatch, valid_us
     assert result == {"title": "Ista DK123"}
 
 
+def test_validate_input_accepts_dk_username_not_email(
+    monkeypatch: pytest.MonkeyPatch, valid_user_input: dict[str, Any]
+) -> None:
+    """DK should accept account codes/usernames that are not email addresses."""
+
+    hass = DummyHass()
+    dk_input = dict(valid_user_input)
+    dk_input["URL"] = "dk_url"
+    dk_input["email"] = "0000000000000"
+
+    class DummyAccount:
+        def login(self) -> str:
+            return "Authenticated"
+
+        def get_user_info(self) -> dict[str, str]:
+            return {"Username": "0000000000000"}
+
+    monkeypatch.setattr(config_flow, "login_account", lambda *args, **kwargs: DummyAccount())
+
+    result = asyncio.run(validate_input(hass, dk_input))
+
+    assert result == {"title": "Ista 0000000000000"}
+
+
 def test_validate_input_propagates_login_error(monkeypatch: pytest.MonkeyPatch, valid_user_input: dict[str, Any]) -> None:
     """Errors from the API login should bubble up for the flow to handle."""
 

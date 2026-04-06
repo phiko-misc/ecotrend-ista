@@ -36,3 +36,10 @@ CONF_TYPE_HEATWATER_CUSTOM: Final = "warmwater_custom"
 CONF_TYPE_WATER: Final = "water"
 CONF_TYPE_WATER_CASH: Final = "water_costs"
 CONF_TYPE_WATER_CUSTOM: Final = "water_custom"
+
+# DK market types
+CONF_TYPE_ELECTRICITY: Final = "electricity"
+CONF_TYPE_ELECTRICITY_CONSUMPTION: Final = "electricity_consumption"
+CONF_TYPE_ELECTRICITY_CASH: Final = "electricity_costs"
+
+CONF_TYPE_HEATING_CONSUMPTION: Final = "heating_consumption"

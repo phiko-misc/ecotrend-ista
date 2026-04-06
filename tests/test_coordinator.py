@@ -8,6 +8,9 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+from custom_components.ecotrend_ista import coordinator as coordinator_module
 
 from custom_components.ecotrend_ista.coordinator import IstaDataUpdateCoordinator, create_directory_file
 
@@ -100,6 +103,13 @@ class DummyDeController:
         return ["de-uuid-1", "de-uuid-2"]
 
 
+class DummyDkControllerPartialFailure(DummyDkController):
+    """DK controller stand-in where one graph endpoint fails."""
+
+    def get_electricity_consumption_day(self) -> list[dict[str, Any]]:
+        raise RuntimeError("404 Not Found")
+
+
 def test_dk_fetch_data_maps_values_for_sensors() -> None:
     """DK payload should expose the latest numeric values and units used by DK sensors."""
 
@@ -109,13 +119,27 @@ def test_dk_fetch_data_maps_values_for_sensors() -> None:
     payload = coordinator._fetch_dk_data()
 
     assert payload["dk"]["electricity_consumption"] == 5.0
-    assert payload["dk"]["electricity_economy"] == 12.0
-    assert payload["dk"]["heat_consumption"] == 7.0
-    assert payload["dk"]["heat_economy"] == 20.0
+    assert payload["dk"]["electricity_costs"] == 12.0
+    assert payload["dk"]["heating_consumption"] == 7.0
+    assert payload["dk"]["water_costs"] == 20.0
     assert payload["dk"]["electricity_unit"] == "kWh"
     assert payload["dk"]["heat_unit"] == "Delinger"
-    assert payload["dk"]["currency_unit"] == "kr"
+    assert payload["dk"]["currency_unit"] == "DKK"
     assert payload["dk"]["user_info"]["Name"] == "DK User"
+
+
+def test_dk_fetch_data_handles_partial_endpoint_failures() -> None:
+    """DK payload fetch should continue when a single endpoint fails (e.g. 404)."""
+
+    coordinator = object.__new__(IstaDataUpdateCoordinator)
+    coordinator.controller = DummyDkControllerPartialFailure()
+
+    payload = coordinator._fetch_dk_data()
+
+    assert payload["dk"]["electricity_consumption"] is None
+    assert payload["dk"]["electricity_costs"] == 12.0
+    assert payload["dk"]["heating_consumption"] == 7.0
+    assert payload["dk"]["water_costs"] == 20.0
 
 
 def test_get_uuids_returns_dk_synthetic_uuid() -> None:
@@ -144,6 +168,7 @@ def test_async_update_data_uses_dk_branch() -> None:
     coordinator = object.__new__(IstaDataUpdateCoordinator)
     coordinator._entry = DummyEntry(options={"URL": "dk_url"}, data={})
     coordinator.hass = DummyHass(base=".")
+    coordinator.logger = coordinator_module._LOGGER
     coordinator.data = None
 
     async def _init() -> None:
@@ -159,3 +184,24 @@ def test_async_update_data_uses_dk_branch() -> None:
     assert result == expected_data
     assert coordinator.data == expected_data
     assert coordinator._updated_data == expected_data
+
+
+def test_set_controller_includes_url_from_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Coordinator should pass selected URL option to login_account for client selection."""
+
+    coordinator = object.__new__(IstaDataUpdateCoordinator)
+    coordinator.hass = DummyHass(base=".")
+    coordinator._entry = DummyEntry(options={"URL": "dk_url"}, data={"email": "28523349853", "password": "secret"})
+
+    captured: dict[str, Any] = {}
+
+    def _fake_login_account(_hass: Any, data: dict[str, Any], _demo: bool = False) -> dict[str, Any]:
+        captured.update(data)
+        return {"controller": "dk"}
+
+    monkeypatch.setattr(coordinator_module, "login_account", _fake_login_account)
+
+    coordinator.set_controller()
+
+    assert captured["URL"] == "dk_url"
+    assert coordinator.controller == {"controller": "dk"}
