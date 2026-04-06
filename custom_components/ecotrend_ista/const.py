@@ -40,6 +40,10 @@ CONF_TYPE_WATER_CUSTOM: Final = "water_custom"
 # DK market types
 CONF_TYPE_ELECTRICITY: Final = "electricity"
 CONF_TYPE_ELECTRICITY_CONSUMPTION: Final = "electricity_consumption"
+CONF_TYPE_ELECTRICITY_CONSUMPTION_DAY: Final = "electricity_consumption_day"
 CONF_TYPE_ELECTRICITY_CASH: Final = "electricity_costs"
+CONF_TYPE_ELECTRICITY_CASH_BILLING: Final = "electricity_costs_billing"
 
 CONF_TYPE_HEATING_CONSUMPTION: Final = "heating_consumption"
+CONF_TYPE_HEATING_CONSUMPTION_DAY: Final = "heating_consumption_day"
+CONF_TYPE_HEATING_CASH_BILLING: Final = "heating_costs_billing"
