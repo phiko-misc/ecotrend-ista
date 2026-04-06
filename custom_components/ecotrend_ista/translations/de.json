@@ -19,7 +19,7 @@
       "german": {
         "data": {
           "URL": "Login-Url",
-          "email": "E-Mail-Adresse",
+          "email": "E-Mail-Adresse/Benutzername",
           "mfa_code": "Zwei-Faktor Authentifizierung",
           "password": "Passwort",
           "update_interval": "Update Interval (h)"
