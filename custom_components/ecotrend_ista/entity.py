@@ -359,17 +359,6 @@ DK_SENSOR_TYPES: tuple[DkSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
     ),
     DkSensorDescription(
-        key=CONF_TYPE_WATER_CASH,
-        icon="mdi:cash",
-        unit_key="currency_unit",
-        data_type=CONF_TYPE_HEATING,
-        costs_or_cosums="costs",
-        device_class=SensorDeviceClass.MONETARY,
-        display_name="Heat Economy",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        state_class=SensorStateClass.TOTAL,
-    ),
-    DkSensorDescription(
         key=CONF_TYPE_HEATING_CASH_BILLING,
         icon="mdi:cash",
         unit_key="currency_unit",
