@@ -57,7 +57,7 @@ DK_SENSOR_TYPES: tuple[DkSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         display_name="Electricity Consumption",
         entity_category=EntityCategory.DIAGNOSTIC,
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        state_class=SensorStateClass.TOTAL,
     ),
     DkSensorDescription(
         key=CONF_TYPE_ELECTRICITY_CONSUMPTION_DAY,

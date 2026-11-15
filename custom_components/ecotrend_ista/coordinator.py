@@ -6,10 +6,7 @@ from datetime import timedelta
 import logging
 from typing import Any
 
-try:
-    from pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
-except ImportError:  # pragma: no cover - fallback for older library versions
-    PyEcotrendIstaDK = Any  # type: ignore[assignment]
+from .pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -153,6 +150,13 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
             normalized_meters.append(normalized_meter)
         return normalized_meters
 
+    @staticmethod
+    def _history_records(records: Any) -> list[dict[str, Any]]:
+        """Return graph records in a stable, serializable list shape."""
+        if not isinstance(records, list):
+            return []
+        return [record for record in records if isinstance(record, dict)]
+
     def _fetch_dk_data(self) -> dict[str, dict[str, Any]]:
         """Fetch the DK data shape used by DK sensor entities."""
         meter_types = self._safe_dk_call("get_meter_types", {})
@@ -199,6 +203,40 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
         electricity_unit = (meter_types.get("electricity") or {}).get("unit")
         heat_unit = (meter_types.get("heat") or {}).get("unit")
         user_settings = self._safe_dk_call("get_user_settings", {})
+        graph_history = {
+            "electricity": {
+                "consumption": {
+                    "billing": self._history_records(electricity_consumption_billing),
+                    "day": self._history_records(electricity_consumption_day),
+                    "week": self._history_records(electricity_consumption_week),
+                    "month": self._history_records(electricity_consumption_month),
+                    "year": self._history_records(electricity_consumption_year),
+                },
+                "economy": {
+                    "billing": self._history_records(electricity_economy_billing),
+                    "day": self._history_records(electricity_economy_day),
+                    "week": self._history_records(electricity_economy_week),
+                    "month": self._history_records(electricity_economy_month),
+                    "year": self._history_records(electricity_economy_year),
+                },
+            },
+            "heat": {
+                "consumption": {
+                    "billing": self._history_records(heat_consumption_billing),
+                    "day": self._history_records(heat_consumption_day),
+                    "week": self._history_records(heat_consumption_week),
+                    "month": self._history_records(heat_consumption_month),
+                    "year": self._history_records(heat_consumption_year),
+                },
+                "economy": {
+                    "billing": self._history_records(heat_economy_billing),
+                    "day": self._history_records(heat_economy_day),
+                    "week": self._history_records(heat_economy_week),
+                    "month": self._history_records(heat_economy_month),
+                    "year": self._history_records(heat_economy_year),
+                },
+            },
+        }
 
         return {
             "dk": {
@@ -229,6 +267,7 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
                 "user_info": user_info,
                 "user_settings": user_settings,
                 "meters": meters,
+                "graph_history": graph_history,
             }
         }
 

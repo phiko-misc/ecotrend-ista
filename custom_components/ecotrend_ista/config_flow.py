@@ -6,11 +6,8 @@ import copy
 import logging
 from typing import Any
 
-from pyecotrend_ista.exception_classes import LoginError
-try:
-    from pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
-except ImportError:  # pragma: no cover - fallback for older library versions
-    PyEcotrendIstaDK = None  # type: ignore[assignment]
+from .pyecotrend_ista.exception_classes import LoginError
+from .pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
 import requests
 import voluptuous as vol
 
@@ -34,8 +31,6 @@ def login_account(
 ) -> PyEcotrendIstaDK:
     """Log into an Ecotrend-Ista account and return an account instance."""
     del hass, demo
-    if PyEcotrendIstaDK is None:
-        raise NotSupportedURL()
     return PyEcotrendIstaDK(
         email=data.get(CONF_EMAIL, None),
         password=data.get(CONF_PASSWORD, None),

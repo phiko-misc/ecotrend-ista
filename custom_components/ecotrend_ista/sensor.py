@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
@@ -62,9 +62,27 @@ class EcotrendDKSensor(CoordinatorEntity[IstaDataUpdateCoordinator], SensorEntit
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return extra DK sensor attributes."""
+        """Return extra DK sensor attributes and cached graph history."""
         payload = (self.coordinator.data or {}).get(self.uuid, {})
-        return {"user_info": payload.get("user_info")}
+        attributes: dict[str, Any] = {"user_info": payload.get("user_info")}
+        graph_history = payload.get("graph_history")
+        if isinstance(graph_history, dict):
+            history = self._get_graph_history(graph_history)
+            if history is not None:
+                attributes["graph_history"] = history
+                attributes["history_points"] = len(history)
+        return attributes
+
+    def _get_graph_history(self, graph_history: dict[str, Any]) -> list[dict[str, Any]] | None:
+        """Return the cached graph records matching this sensor."""
+        key = self.entity_description.key
+        meter_type = "electricity" if key.startswith("electricity_") else "heat"
+        data_type = "economy" if "costs" in key else "consumption"
+        interval = key.rsplit("_", 1)[-1]
+        if interval not in {"day", "week", "month", "year"}:
+            interval = "billing"
+        records = graph_history.get(meter_type, {}).get(data_type, {}).get(interval)
+        return records if isinstance(records, list) else None
 
 
 class EcotrendDKMeterSensor(CoordinatorEntity[IstaDataUpdateCoordinator], SensorEntity):
@@ -86,6 +104,9 @@ class EcotrendDKMeterSensor(CoordinatorEntity[IstaDataUpdateCoordinator], Sensor
         meter_name = meter.get("MeterText") or meter.get("MeterType") or "Meter"
         self._attr_name = f"{meter_name} Last Reading"
         self._attr_unique_id = f"meter_{self._meter_key}_last_reading"
+        if meter.get("MeterType") == "EL":
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, "dk")},
             manufacturer=MANUFACTURER,

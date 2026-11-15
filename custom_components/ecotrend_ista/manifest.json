@@ -14,7 +14,6 @@
         "pyecotrend_ista"
     ],
     "requirements": [
-        "pyecotrend_ista @ git+https://github.com/phiko-misc/pyecotrend-ista.git",
         "pyotp==2.8.0",
         "marshmallow-enum==1.5.1"
     ],

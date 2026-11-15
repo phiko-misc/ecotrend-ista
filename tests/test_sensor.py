@@ -51,6 +51,15 @@ class DummyCoordinator:
                     "receiveNotificationByPhone": True,
                     "receiveNotificationByMail": False,
                 },
+                "graph_history": {
+                    "electricity": {
+                        "consumption": {
+                            "billing": [{"value": 50}, {"value": 55}],
+                        },
+                        "economy": {},
+                    },
+                    "heat": {"consumption": {}, "economy": {}},
+                },
                 "meters": [
                     {
                         "METER_ID": 123,
@@ -105,6 +114,19 @@ def test_dk_sensor_native_value_and_unit() -> None:
     assert entity.native_value == 12.0
     assert entity.native_unit_of_measurement == "DKK"
     assert entity.extra_state_attributes["user_info"]["Name"] == "DK User"
+
+
+def test_dk_sensor_exposes_cached_graph_history() -> None:
+    """DK sensors should expose their matching cached graph records."""
+
+    entry = DummyConfigEntry()
+    coordinator = DummyCoordinator(entry)
+    description = next(item for item in DK_SENSOR_TYPES if item.key == "electricity_consumption")
+
+    entity = EcotrendDKSensor(coordinator, description, "dk")
+
+    assert entity.extra_state_attributes["graph_history"] == [{"value": 50}, {"value": 55}]
+    assert entity.extra_state_attributes["history_points"] == 2
 
 
 def test_dk_sensor_uses_meter_units() -> None:
@@ -172,6 +194,8 @@ def test_dk_meter_sensor_exposes_reading_and_metadata() -> None:
 
     assert entity.native_value == 42
     assert entity.native_unit_of_measurement == "kWh"
+    assert entity._attr_device_class == "energy"
+    assert entity._attr_state_class == "total_increasing"
     assert entity.extra_state_attributes["meter_type"] == "EL"
     assert entity.extra_state_attributes["room"] == "Kitchen"
     assert entity._attr_unique_id == "meter_123_last_reading"

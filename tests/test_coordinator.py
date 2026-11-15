@@ -116,6 +116,7 @@ def test_dk_fetch_data_maps_values_for_sensors() -> None:
     assert payload["dk"]["user_settings"]["receiveNotificationByPhone"] is True
     assert payload["dk"]["meters"][0]["METER_ID"] == 123
     assert payload["dk"]["meters"][1]["smoke_status"] == "battery_low"
+    assert payload["dk"]["graph_history"]["electricity"]["consumption"]["billing"] == [{"value": None}, {"value": 50}]
 
 
 def test_dk_fetch_data_handles_partial_endpoint_failures() -> None:
