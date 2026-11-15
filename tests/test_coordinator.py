@@ -58,6 +58,14 @@ class DummyDkController:
     def get_user_info(self) -> dict[str, Any]:
         return {"Name": "DK User", "Language": "da-DK"}
 
+    def get_user_settings(self) -> dict[str, Any]:
+        return {
+            "Phone": "+4512345678",
+            "receiveNotification": True,
+            "receiveNotificationByPhone": True,
+            "receiveNotificationByMail": False,
+        }
+
     def get_meters(self) -> dict[str, Any]:
         return {
             "Meters": {
@@ -69,7 +77,14 @@ class DummyDkController:
                         "MeterType": "EL",
                         "Unit": "kWh",
                         "Last_Meter_Reading": 42,
-                    }
+                    },
+                    {
+                        "METER_ID": 456,
+                        "MeterText": "Røg",
+                        "MeterType": "SMOKE",
+                        "Message": "Battery low",
+                        "Headline": None,
+                    },
                 ]
             }
         }
@@ -98,7 +113,9 @@ def test_dk_fetch_data_maps_values_for_sensors() -> None:
     assert payload["dk"]["heat_unit"] == "Delinger"
     assert payload["dk"]["currency_unit"] == "DKK"
     assert payload["dk"]["user_info"]["Name"] == "DK User"
+    assert payload["dk"]["user_settings"]["receiveNotificationByPhone"] is True
     assert payload["dk"]["meters"][0]["METER_ID"] == 123
+    assert payload["dk"]["meters"][1]["smoke_status"] == "battery_low"
 
 
 def test_dk_fetch_data_handles_partial_endpoint_failures() -> None:

@@ -118,6 +118,41 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.warning("DK endpoint '%s' failed: %s", method_name, error)
             return default
 
+    @staticmethod
+    def _normalize_smoke_status(meter: dict[str, Any]) -> str:
+        """Normalize a smoke meter message into a stable status."""
+        raw_status = " ".join(
+            str(meter.get(field, "")).strip() for field in ("Message", "Headline") if meter.get(field)
+        ).lower()
+        if not raw_status:
+            return "unknown"
+        if any(term in raw_status for term in ("alarm", "fire", "røg", "smoke")):
+            return "alarm"
+        if any(term in raw_status for term in ("battery", "batteri")):
+            return "battery_low"
+        if any(term in raw_status for term in ("fault", "error", "fejl")):
+            return "fault"
+        if any(term in raw_status for term in ("tamper", "sabotage")):
+            return "tamper"
+        if any(term in raw_status for term in ("test", "prøve")):
+            return "test"
+        if any(term in raw_status for term in ("clear", "normal", "ok", "ingen")):
+            return "clear"
+        return "unknown"
+
+    @classmethod
+    def _normalize_meters(cls, meters: list[Any]) -> list[dict[str, Any]]:
+        """Normalize meter records for Home Assistant entities."""
+        normalized_meters = []
+        for meter in meters:
+            if not isinstance(meter, dict):
+                continue
+            normalized_meter = dict(meter)
+            if str(normalized_meter.get("MeterType", "")).upper() == "SMOKE":
+                normalized_meter["smoke_status"] = cls._normalize_smoke_status(normalized_meter)
+            normalized_meters.append(normalized_meter)
+        return normalized_meters
+
     def _fetch_dk_data(self) -> dict[str, dict[str, Any]]:
         """Fetch the DK data shape used by DK sensor entities."""
         meter_types = self._safe_dk_call("get_meter_types", {})
@@ -159,10 +194,11 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
             if isinstance(meter_container, dict):
                 meter_values = meter_container.get("Value", meter_container.get("value", []))
                 if isinstance(meter_values, list):
-                    meters = meter_values
+                    meters = self._normalize_meters(meter_values)
 
         electricity_unit = (meter_types.get("electricity") or {}).get("unit")
         heat_unit = (meter_types.get("heat") or {}).get("unit")
+        user_settings = self._safe_dk_call("get_user_settings", {})
 
         return {
             "dk": {
@@ -191,6 +227,7 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
                 "heat_unit": heat_unit,
                 "currency_unit": currency_unit,
                 "user_info": user_info,
+                "user_settings": user_settings,
                 "meters": meters,
             }
         }

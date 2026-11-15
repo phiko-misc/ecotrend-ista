@@ -17,6 +17,7 @@ from custom_components.ecotrend_ista.sensor import (
     EcotrendDKMeterSensor,
     EcotrendDKSensor,
     EcotrendDKSmokeSensor,
+    EcotrendDKUserSettingsSensor,
     async_setup_entry,
 )
 
@@ -44,6 +45,12 @@ class DummyCoordinator:
                 "heat_unit": "Delinger",
                 "currency_unit": "DKK",
                 "user_info": {"Name": "DK User", "Language": "da-DK"},
+                "user_settings": {
+                    "Phone": "+4512345678",
+                    "receiveNotification": True,
+                    "receiveNotificationByPhone": True,
+                    "receiveNotificationByMail": False,
+                },
                 "meters": [
                     {
                         "METER_ID": 123,
@@ -67,6 +74,7 @@ class DummyCoordinator:
                         "ROOM_DESCR": "Hallway",
                         "Message": "Battery low",
                         "Headline": "Smoke detector status",
+                        "smoke_status": "battery_low",
                         "Reading_date": "2026-11-15",
                         "Last_Meter_Reading": 0,
                         "Last_Meter_Consumption": 0,
@@ -143,10 +151,11 @@ def test_async_setup_entry_creates_dk_sensors() -> None:
 
     asyncio.run(async_setup_entry(hass, entry, _add_entities))
 
-    assert len(captured_entities) == len(DK_SENSOR_TYPES) + 3
+    assert len(captured_entities) == len(DK_SENSOR_TYPES) + 4
     assert sum(isinstance(entity, EcotrendDKSensor) for entity in captured_entities) == len(DK_SENSOR_TYPES)
     assert sum(isinstance(entity, EcotrendDKMeterSensor) for entity in captured_entities) == 2
     assert sum(isinstance(entity, EcotrendDKSmokeSensor) for entity in captured_entities) == 1
+    assert sum(isinstance(entity, EcotrendDKUserSettingsSensor) for entity in captured_entities) == 1
     assert {entity._attr_unique_id for entity in captured_entities if isinstance(entity, EcotrendDKSensor)} == {
         f"{item.key}_dk" for item in DK_SENSOR_TYPES
     }
@@ -168,8 +177,8 @@ def test_dk_meter_sensor_exposes_reading_and_metadata() -> None:
     assert entity._attr_unique_id == "meter_123_last_reading"
 
 
-def test_dk_smoke_sensor_exposes_api_status() -> None:
-    """Smoke detector sensors should expose raw API status text."""
+def test_dk_smoke_sensor_exposes_normalized_status() -> None:
+    """Smoke detector sensors should expose normalized status and raw metadata."""
 
     entry = DummyConfigEntry()
     coordinator = DummyCoordinator(entry)
@@ -177,6 +186,20 @@ def test_dk_smoke_sensor_exposes_api_status() -> None:
 
     entity = EcotrendDKSmokeSensor(coordinator, meter, 1)
 
-    assert entity.native_value == "Battery low"
+    assert entity.native_value == "battery_low"
     assert entity.extra_state_attributes["headline"] == "Smoke detector status"
     assert entity._attr_unique_id == "meter_456_status"
+
+
+def test_dk_user_settings_sensor_exposes_safe_phone_settings() -> None:
+    """User settings sensor should expose notification state without the full phone number."""
+
+    entry = DummyConfigEntry()
+    coordinator = DummyCoordinator(entry)
+
+    entity = EcotrendDKUserSettingsSensor(coordinator)
+
+    assert entity.native_value == "enabled"
+    assert entity.extra_state_attributes["phone_configured"] is True
+    assert entity.extra_state_attributes["phone_last_four"] == "5678"
+    assert "Phone" not in entity.extra_state_attributes

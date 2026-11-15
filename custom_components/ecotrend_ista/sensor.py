@@ -167,13 +167,9 @@ class EcotrendDKSmokeSensor(CoordinatorEntity[IstaDataUpdateCoordinator], Sensor
 
     @property
     def native_value(self) -> str | None:
-        """Return the raw smoke detector status reported by the API."""
-        meter = self._meter
-        for field in ("Message", "Headline"):
-            status = meter.get(field)
-            if isinstance(status, str) and status.strip():
-                return status.strip()
-        return None
+        """Return the normalized smoke detector status."""
+        status = self._meter.get("smoke_status")
+        return status if isinstance(status, str) else "unknown"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -185,9 +181,51 @@ class EcotrendDKSmokeSensor(CoordinatorEntity[IstaDataUpdateCoordinator], Sensor
             "room": meter.get("ROOM_DESCR"),
             "message": meter.get("Message"),
             "headline": meter.get("Headline"),
+            "status": meter.get("smoke_status", "unknown"),
             "reading_date": meter.get("Reading_date"),
             "activation_date": meter.get("Activation_date"),
             "deactivation_date": meter.get("Deactivation_date"),
+        }
+
+
+class EcotrendDKUserSettingsSensor(CoordinatorEntity[IstaDataUpdateCoordinator], SensorEntity):
+    """Expose the read-only phone notification setting."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:cellphone-message"
+
+    def __init__(self, coordinator: IstaDataUpdateCoordinator) -> None:
+        """Initialize the user settings diagnostic sensor."""
+        super().__init__(coordinator)
+        self._attr_name = "Phone Notifications"
+        self._attr_unique_id = "user_settings_phone_notifications_dk"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, "dk")},
+            manufacturer=MANUFACTURER,
+            model="ista DK consumption & costs",
+            name=f"{DEVICE_NAME} DK",
+        )
+
+    @property
+    def native_value(self) -> str:
+        """Return whether phone notifications are enabled."""
+        settings = (self.coordinator.data or {}).get("dk", {}).get("user_settings")
+        if not isinstance(settings, dict):
+            return "unknown"
+        return "enabled" if settings.get("receiveNotificationByPhone") is True else "disabled"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return safe read-only notification settings."""
+        settings = (self.coordinator.data or {}).get("dk", {}).get("user_settings")
+        if not isinstance(settings, dict):
+            return {}
+        phone = settings.get("Phone")
+        return {
+            "phone_configured": bool(isinstance(phone, str) and phone.strip()),
+            "phone_last_four": phone[-4:] if isinstance(phone, str) and len(phone) >= 4 else None,
+            "receive_notification": settings.get("receiveNotification"),
+            "receive_notification_by_mail": settings.get("receiveNotificationByMail"),
         }
 
 
@@ -208,6 +246,10 @@ async def async_setup_entry(
         for index, meter in enumerate(meters)
         if isinstance(meter, dict) and meter.get("MeterType") == "SMOKE"
     ]
+    user_settings_entity = EcotrendDKUserSettingsSensor(coordinator)
     async_add_entities(
-        [EcotrendDKSensor(coordinator, description, "dk") for description in DK_SENSOR_TYPES] + meter_entities + smoke_entities
+        [EcotrendDKSensor(coordinator, description, "dk") for description in DK_SENSOR_TYPES]
+        + meter_entities
+        + smoke_entities
+        + [user_settings_entity]
     )
