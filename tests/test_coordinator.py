@@ -42,11 +42,17 @@ class DummyDkController:
     def get_electricity_consumption_day(self) -> list[dict[str, Any]]:
         return [{"value": None}, {"value": 5}]
 
+    def get_electricity_consumption_billing(self) -> list[dict[str, Any]]:
+        return [{"value": None}, {"value": 50}]
+
     def get_electricity_economy_day(self) -> list[dict[str, Any]]:
         return [{"priceValue": None}, {"priceValue": 12}]
 
     def get_heat_consumption_day(self) -> list[dict[str, Any]]:
         return [{"value": None}, {"value": 7}]
+
+    def get_heat_consumption_billing(self) -> list[dict[str, Any]]:
+        return [{"value": None}, {"value": 70}]
 
     def get_heat_economy_day(self) -> list[dict[str, Any]]:
         return [{"priceValue": None}, {"priceValue": 20}]
@@ -70,10 +76,10 @@ def test_dk_fetch_data_maps_values_for_sensors() -> None:
 
     payload = coordinator._fetch_dk_data()
 
-    assert payload["dk"]["electricity_consumption"] == 5.0
-    assert payload["dk"]["electricity_costs"] == 12.0
-    assert payload["dk"]["heating_consumption"] == 7.0
-    assert payload["dk"]["water_costs"] == 20.0
+    assert payload["dk"]["electricity_consumption"] == 50.0
+    assert payload["dk"]["electricity_costs_billing"] is None
+    assert payload["dk"]["heating_consumption"] == 70.0
+    assert payload["dk"]["heating_costs_billing"] is None
     assert payload["dk"]["electricity_unit"] == "kWh"
     assert payload["dk"]["heat_unit"] == "Delinger"
     assert payload["dk"]["currency_unit"] == "DKK"
@@ -88,10 +94,10 @@ def test_dk_fetch_data_handles_partial_endpoint_failures() -> None:
 
     payload = coordinator._fetch_dk_data()
 
-    assert payload["dk"]["electricity_consumption"] is None
-    assert payload["dk"]["electricity_costs"] == 12.0
-    assert payload["dk"]["heating_consumption"] == 7.0
-    assert payload["dk"]["water_costs"] == 20.0
+    assert payload["dk"]["electricity_consumption"] == 50.0
+    assert payload["dk"]["electricity_costs_billing"] is None
+    assert payload["dk"]["heating_consumption"] == 70.0
+    assert payload["dk"]["heating_costs_billing"] is None
 
 
 def test_get_uuids_returns_dk_synthetic_uuid() -> None:

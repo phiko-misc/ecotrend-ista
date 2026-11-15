@@ -31,9 +31,9 @@ class DummyCoordinator:
         self.data = {
             "dk": {
                 "electricity_consumption": 8.0,
-                "electricity_costs": 12.0,
+                "electricity_costs_day": 12.0,
                 "heating_consumption": 4.0,
-                "water_costs": 5.0,
+                "heating_costs_day": 5.0,
                 "electricity_unit": "kWh",
                 "heat_unit": "Delinger",
                 "currency_unit": "DKK",
@@ -54,7 +54,7 @@ def test_dk_sensor_native_value_and_unit() -> None:
 
     entry = DummyConfigEntry()
     coordinator = DummyCoordinator(entry)
-    description = next(item for item in DK_SENSOR_TYPES if item.key == CONF_TYPE_ELECTRICITY_CASH)
+    description = next(item for item in DK_SENSOR_TYPES if item.key == "electricity_costs_day")
 
     entity = EcotrendDKSensor(coordinator, description, "dk")
 
@@ -110,8 +110,5 @@ def test_async_setup_entry_creates_dk_sensors() -> None:
     assert len(captured_entities) == len(DK_SENSOR_TYPES)
     assert all(isinstance(entity, EcotrendDKSensor) for entity in captured_entities)
     assert {entity._attr_unique_id for entity in captured_entities} == {
-        f"{CONF_TYPE_ELECTRICITY_CONSUMPTION}_dk",
-        f"{CONF_TYPE_ELECTRICITY_CASH}_dk",
-        f"{CONF_TYPE_HEATING_CONSUMPTION}_dk",
-        f"{CONF_TYPE_HEATING_CASH_DAY}_dk",
+        f"{item.key}_dk" for item in DK_SENSOR_TYPES
     }

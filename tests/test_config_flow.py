@@ -111,6 +111,6 @@ def test_validate_options_input_returns_no_errors(valid_user_input: dict[str, An
 
 
 def test_validate_options_input_rejects_invalid_url() -> None:
-    """An unsupported URL produces an error message."""
+    """Options no longer accept a URL selector."""
 
-    assert validate_options_input({"URL": "other"}) == {"base": "not_allowed"}
+    assert validate_options_input({"update_interval": 12}) == {}
