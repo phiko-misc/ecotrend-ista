@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import copy
 import logging
-from types import MappingProxyType
 from typing import Any
 
 from pyecotrend_ista.exception_classes import LoginError
-from pyecotrend_ista.pyecotrend_ista import PyEcotrendIsta
 try:
     from pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
 except ImportError:  # pragma: no cover - fallback for older library versions
@@ -21,8 +19,8 @@ from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
-from .const import CONF_MFA, CONF_UPDATE_INTERVAL, CONF_URL, DOMAIN, MANUFACTURER
-from .const_schema import DATA_SCHEMA_EMAIL, URL_SELECTOR
+from .const import CONF_UPDATE_INTERVAL, CONF_URL, DOMAIN, MANUFACTURER
+from .const_schema import DATA_SCHEMA_EMAIL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,52 +29,35 @@ _LOGGER = logging.getLogger(__name__)
 @core.callback
 def login_account(
     hass: core.HomeAssistant,
-    data: MappingProxyType[str, Any],
+    data: dict[str, Any],
     demo: bool = False,
-) -> PyEcotrendIsta | PyEcotrendIstaDK:
+) -> PyEcotrendIstaDK:
     """Log into an Ecotrend-Ista account and return an account instance."""
-    if data.get(CONF_URL) == "dk_url":
-        if PyEcotrendIstaDK is None:
-            raise NotSupportedURL()
-        return PyEcotrendIstaDK(
-            email=data.get(CONF_EMAIL, None),
-            password=data.get(CONF_PASSWORD, None),
-            session=requests.Session(),
-        )
-
-    account = PyEcotrendIsta(
+    del hass, demo
+    if PyEcotrendIstaDK is None:
+        raise NotSupportedURL()
+    return PyEcotrendIstaDK(
         email=data.get(CONF_EMAIL, None),
         password=data.get(CONF_PASSWORD, None),
-        totp=data.get(CONF_MFA, "").replace(" ", ""),
         session=requests.Session(),
     )
-    return account
 
 
 async def validate_input(hass: core.HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
     """Validate the user input allows us to connect.
     Data has the keys from DATA_SCHEMA_EMAIL with values provided by the user.
     """  # noqa: D205
-    if CONF_URL not in data or data[CONF_URL] not in ("de_url", "dk_url"):
+    if CONF_URL not in data or data[CONF_URL] != "dk_url":
         raise NotSupportedURL()
 
-    # DK uses a username/code instead of an email address.
-    if data.get(CONF_URL) == "dk_url":
-        username = data.get(CONF_EMAIL, "")
-        if not isinstance(username, str) or not username.strip():
-            raise vol.Invalid("Missing username/code")
-    else:
-        # pylint: disable=no-value-for-parameter
-        try:
-            vol.Email()(data.get(CONF_EMAIL))
-        except vol.Invalid as error:
-            raise vol.Invalid(error) from error
+    username = data.get(CONF_EMAIL, "")
+    if not isinstance(username, str) or not username.strip():
+        raise vol.Invalid("Missing username/code")
 
     account = login_account(hass, data)
 
-    login_info = None
     try:
-        login_info = await hass.async_add_executor_job(account.login)
+        await hass.async_add_executor_job(account.login)
     except LoginError as error:
         _LOGGER.error(error)
         raise LoginError(error) from error
@@ -90,16 +71,11 @@ async def validate_input(hass: core.HomeAssistant, data: dict[str, Any]) -> dict
         _LOGGER.error(error)
         raise requests.Timeout from error
 
-    if data.get(CONF_URL) == "dk_url":
-        user_info = {}
-        if hasattr(account, "get_user_info"):
-            user_info = await hass.async_add_executor_job(account.get_user_info)
-        account_label = user_info.get("Username") or user_info.get("Name") or user_info.get("Email") or "DK"
-        return {"title": f"{MANUFACTURER} {account_label}"}
-
-    return {
-        "title": f"{MANUFACTURER} {account.get_support_code()} {'' if not login_info or login_info != 'Demo' else login_info}"
-    }
+    user_info = {}
+    if hasattr(account, "get_user_info"):
+        user_info = await hass.async_add_executor_job(account.get_user_info)
+    account_label = user_info.get("Username") or user_info.get("Name") or user_info.get("Email") or "DK"
+    return {"title": f"{MANUFACTURER} {account_label}"}
 
 
 class NotSupportedURL(Exception):
@@ -121,12 +97,13 @@ class IstaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
-        return await self.async_step_german(user_input=user_input)
+        return await self.async_step_danish(user_input=user_input)
 
-    async def async_step_german(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_danish(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
         if user_input is not None:
+            user_input = {**user_input, CONF_URL: "dk_url"}
             unique_id = f"{user_input[CONF_EMAIL]}"
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
@@ -154,17 +131,16 @@ class IstaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_EMAIL: user_input[CONF_EMAIL],
                         CONF_PASSWORD: user_input[CONF_PASSWORD],
-                        CONF_MFA: user_input.get(CONF_MFA, "").replace(" ", ""),
                     },
                     options={
-                        CONF_URL: user_input[CONF_URL],
+                        CONF_URL: "dk_url",
                         CONF_UPDATE_INTERVAL: user_input[CONF_UPDATE_INTERVAL],
                         # "dev_demo": user_input["dev_demo"],
                     },
                 )
 
         return self.async_show_form(
-            step_id="german",
+            step_id="danish",
             data_schema=vol.Schema(DATA_SCHEMA_EMAIL),
             errors=errors,
             last_step=True,
@@ -180,20 +156,16 @@ class IstaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="No configuration to import.")
         self._async_abort_entries_match({CONF_EMAIL: import_data[CONF_EMAIL]})
         # Verarbeite die importierten Konfigurationsdaten weiter
-        import_data[CONF_URL] = "de_url"
+        import_data[CONF_URL] = "dk_url"
         import_data[CONF_UPDATE_INTERVAL] = 24
-        import_data[CONF_MFA] = ""
         _LOGGER.debug("Starting import of sensor from configuration.yaml - %s", _import_data)
-        return await self.async_step_german(import_data)
+        return await self.async_step_danish(import_data)
 
 
 def validate_options_input(user_input: dict[str, Any]) -> dict[str, str]:
-    """Validate the user input allows us to connect. Data has the keys from DATA_SCHEMA with values provided by the user."""
-
-    errors = {}
-    if CONF_URL not in user_input or user_input[CONF_URL] not in ("de_url", "dk_url"):
-        errors["base"] = "not_allowed"
-    return errors
+    """Validate Danish ista EcoTrend options."""
+    del user_input
+    return {}
 
 
 class IstaOptionsFlowHandler(config_entries.OptionsFlowWithConfigEntry):
@@ -205,7 +177,6 @@ class IstaOptionsFlowHandler(config_entries.OptionsFlowWithConfigEntry):
         errors: dict[str, str] = {}
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_URL, default=options.get(CONF_URL, "de_url")): URL_SELECTOR,
                 vol.Required(CONF_UPDATE_INTERVAL, default=options.get(CONF_UPDATE_INTERVAL, 24)): NumberSelector(
                     NumberSelectorConfig(mode=NumberSelectorMode.SLIDER, min=1, max=24)
                 ),
@@ -216,6 +187,6 @@ class IstaOptionsFlowHandler(config_entries.OptionsFlowWithConfigEntry):
             errors = validate_options_input(user_input)
 
             if not errors:
-                return self.async_create_entry(title="", data=user_input)
+                return self.async_create_entry(title="", data={CONF_URL: "dk_url", **user_input})
 
         return self.async_show_form(step_id="init", data_schema=data_schema, errors=errors, last_step=True)

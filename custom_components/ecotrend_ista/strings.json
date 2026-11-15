@@ -16,44 +16,27 @@
       "unknown": "[%key:common::config_flow::error::unknown%]"
     },
     "step": {
-      "german": {
+      "danish": {
         "data": {
-          "URL": "[%key:common::config_flow::data::URL%]",
           "email": "[%key:common::config_flow::data::email%]",
-          "mfa_code": "[%key:common::config_flow::data::mfa_code%]",
-          "password": "[%key:common::config_flow::data::password%]"
+          "password": "[%key:common::config_flow::data::password%]",
+          "update_interval": "Opdateringsinterval (timer)"
         },
-        "description": "[%key:common::config_flow::german::description%]",
-        "title": "[%key:common::config_flow::german::title%]"
-      },
-      "user": {
-        "data": {
-          "URL": "[%key:common::config_flow::data::URL%]",
-          "email": "[%key:common::config_flow::data::email%]",
-          "password": "[%key:common::config_flow::data::password%]"
-        },
-        "description": "[%key:common::config_flow::german::description%]",
-        "menu_options": {
-          "denmark": "",
-          "francais": "https://ma-consommation.ista.lu/",
-          "german": "https://www.ecotrend.ista.de/",
-          "netherland": "https://mijn.ista.nl/"
-        },
-        "title": "[%key:common::config_flow::user::title%]"
+        "description": "Konto-godkendelse",
+        "title": "Konfigurer ista EcoTrend"
       }
     }
   },
   "options": {
     "error": {
-      "not_allowed": "Die gewählte URL ist nicht erlaubt"
+      "not_allowed": "Den valgte URL understøttes ikke"
     },
     "step": {
       "init": {
         "data": {
-          "URL": "Login-Url",
-          "update_interval": "Update Interval (h)"
+          "update_interval": "Opdateringsinterval (timer)"
         },
-        "title": "Einstellungen für ista EcoTrend"
+        "title": "Indstillinger for ista EcoTrend"
       }
     }
   }

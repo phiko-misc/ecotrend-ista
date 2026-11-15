@@ -9,7 +9,7 @@ from custom_components.ecotrend_ista.const import (
     CONF_TYPE_ELECTRICITY_CONSUMPTION,
     CONF_TYPE_ELECTRICITY_CASH,
     CONF_TYPE_HEATING_CONSUMPTION,
-    CONF_TYPE_WATER_CASH,
+    CONF_TYPE_HEATING_CASH_DAY,
 )
 from custom_components.ecotrend_ista.const import DOMAIN
 from custom_components.ecotrend_ista.sensor import DK_SENSOR_TYPES, EcotrendDKSensor, async_setup_entry
@@ -83,7 +83,7 @@ def test_dk_heat_sensors_resolve_values() -> None:
     coordinator = DummyCoordinator(entry)
 
     heating_descr = next(item for item in DK_SENSOR_TYPES if item.key == CONF_TYPE_HEATING_CONSUMPTION)
-    heat_economy_descr = next(item for item in DK_SENSOR_TYPES if item.key == CONF_TYPE_WATER_CASH)
+    heat_economy_descr = next(item for item in DK_SENSOR_TYPES if item.key == CONF_TYPE_HEATING_CASH_DAY)
 
     heating_entity = EcotrendDKSensor(coordinator, heating_descr, "dk")
     heat_economy_entity = EcotrendDKSensor(coordinator, heat_economy_descr, "dk")
@@ -113,5 +113,5 @@ def test_async_setup_entry_creates_dk_sensors() -> None:
         f"{CONF_TYPE_ELECTRICITY_CONSUMPTION}_dk",
         f"{CONF_TYPE_ELECTRICITY_CASH}_dk",
         f"{CONF_TYPE_HEATING_CONSUMPTION}_dk",
-        f"{CONF_TYPE_WATER_CASH}_dk",
+        f"{CONF_TYPE_HEATING_CASH_DAY}_dk",
     }

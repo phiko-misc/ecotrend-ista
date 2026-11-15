@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Integrationen er allerede konfigureret",
+      "single_instance_allowed": "Allerede konfigureret. Kun én konfiguration er tilladt."
+    },
+    "create_entry": {
+      "default": "ista EcoTrend-integrationen er oprettet!"
+    },
+    "error": {
+      "auth_inval": "Login mislykkedes. Kontrollér brugernavn, adgangskode eller login-URL.",
+      "cannot_connect": "Forbindelsen mislykkedes",
+      "no_email": "Brugernavn eller kode mangler",
+      "not_allowed": "Den valgte URL understøttes ikke",
+      "timeout_connect": "Timeout ved oprettelse af forbindelse",
+      "unknown": "Uventet fejl"
+    },
+    "step": {
+      "danish": {
+        "data": {
+          "email": "Brugernavn eller kode",
+          "password": "Adgangskode",
+          "update_interval": "Opdateringsinterval (timer)"
+        },
+        "description": "Godkend konto",
+        "title": "Konfigurer ista EcoTrend"
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "not_allowed": "Den valgte URL understøttes ikke"
+    },
+    "step": {
+      "init": {
+        "data": {
+          "URL": "Login-URL",
+          "update_interval": "Opdateringsinterval (timer)"
+        },
+        "title": "Indstillinger for ista EcoTrend"
+      }
+    }
+  }
+}

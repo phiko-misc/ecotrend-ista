@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from types import MappingProxyType
 from typing import Any
 
 import pytest
@@ -24,10 +23,9 @@ def valid_user_input() -> dict[str, Any]:
     """Provide a baseline of valid user input values."""
 
     return {
-        "email": "user@example.com",
+        "email": "0000000000000",
         "password": "secret",
-        "URL": "de_url",
-        "mfa_code": "123456",
+        "URL": "dk_url",
         "update_interval": 12,
     }
 
@@ -39,12 +37,12 @@ def test_validate_input_success(monkeypatch: pytest.MonkeyPatch, valid_user_inpu
 
     class DummyAccount:
         def login(self) -> str:
-            return "Demo"
+            return "Authenticated"
 
-        def get_support_code(self) -> str:
-            return "SC123"
+        def get_user_info(self) -> dict[str, str]:
+            return {"Username": valid_user_input["email"]}
 
-    def fake_login_account(_hass, data: MappingProxyType[str, Any], demo: bool = False) -> DummyAccount:
+    def fake_login_account(_hass, data: dict[str, Any], demo: bool = False) -> DummyAccount:
         assert demo is False
         assert data["email"] == valid_user_input["email"]
         return DummyAccount()
@@ -53,7 +51,7 @@ def test_validate_input_success(monkeypatch: pytest.MonkeyPatch, valid_user_inpu
 
     result = asyncio.run(validate_input(hass, valid_user_input))
 
-    assert result == {"title": "Ista SC123 Demo"}
+    assert result == {"title": "Ista 0000000000000"}
 
 
 def test_validate_input_rejects_unknown_url(valid_user_input: dict[str, Any]) -> None:
@@ -65,27 +63,6 @@ def test_validate_input_rejects_unknown_url(valid_user_input: dict[str, Any]) ->
 
     with pytest.raises(NotSupportedURL):
         asyncio.run(validate_input(hass, invalid_input))
-
-
-def test_validate_input_accepts_dk_url(monkeypatch: pytest.MonkeyPatch, valid_user_input: dict[str, Any]) -> None:
-    """DK URL should be accepted by validation."""
-
-    hass = DummyHass()
-    dk_input = dict(valid_user_input)
-    dk_input["URL"] = "dk_url"
-
-    class DummyAccount:
-        def login(self) -> str:
-            return "Authenticated"
-
-        def get_user_info(self) -> dict[str, str]:
-            return {"Username": "DK123"}
-
-    monkeypatch.setattr(config_flow, "login_account", lambda *args, **kwargs: DummyAccount())
-
-    result = asyncio.run(validate_input(hass, dk_input))
-
-    assert result == {"title": "Ista DK123"}
 
 
 def test_validate_input_accepts_dk_username_not_email(
@@ -130,7 +107,6 @@ def test_validate_input_propagates_login_error(monkeypatch: pytest.MonkeyPatch, 
 def test_validate_options_input_returns_no_errors(valid_user_input: dict[str, Any]) -> None:
     """The option validation should accept the supported URL."""
 
-    assert validate_options_input({"URL": "de_url"}) == {}
     assert validate_options_input({"URL": "dk_url"}) == {}
 
 

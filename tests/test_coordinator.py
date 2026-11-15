@@ -2,65 +2,24 @@
 
 from __future__ import annotations
 
-import json
-import os
 import asyncio
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from custom_components.ecotrend_ista import coordinator as coordinator_module
 
-from custom_components.ecotrend_ista.coordinator import IstaDataUpdateCoordinator, create_directory_file
-
-
-class DummyConfig:
-    """Provide a minimal config object with a path helper."""
-
-    def __init__(self, base: str) -> None:
-        self._base = base
-
-    def path(self, *paths: str) -> str:
-        return os.path.join(self._base, *paths)
+from custom_components.ecotrend_ista.coordinator import IstaDataUpdateCoordinator
 
 
 class DummyHass:
     """Simplified hass object for coordinator tests."""
 
-    def __init__(self, base: str) -> None:
-        self.config = DummyConfig(base)
+    def __init__(self, base: str = ".") -> None:
+        del base
 
     async def async_add_executor_job(self, func, *args: Any, **kwargs: Any) -> Any:
         return func(*args, **kwargs)
-
-
-class DummyRaw:
-    """Minimal replacement for the CustomRaw object."""
-
-    def __init__(self, payload: dict[str, Any]) -> None:
-        self._payload = payload
-
-    def to_dict(self) -> dict[str, Any]:
-        return self._payload
-
-
-def test_create_directory_file_writes_expected_json(tmp_path: Path) -> None:
-    """The helper should create the target folder and write the JSON representation."""
-
-    hass = DummyHass(str(tmp_path))
-    payload = {"value": 42}
-    consum_raw = DummyRaw(payload)
-
-    asyncio.run(create_directory_file(hass, consum_raw, "support"))
-
-    target_file = tmp_path / "www" / "ecotrend_ista_support.json"
-    assert target_file.exists()
-
-    with target_file.open(encoding="utf-8") as file:
-        data = json.load(file)
-
-    assert data == payload
 
 
 class DummyEntry:
@@ -94,13 +53,6 @@ class DummyDkController:
 
     def get_user_info(self) -> dict[str, Any]:
         return {"Name": "DK User", "Language": "da-DK"}
-
-
-class DummyDeController:
-    """DE controller stand-in exposing get_uuids for delegation checks."""
-
-    def get_uuids(self) -> list[str]:
-        return ["de-uuid-1", "de-uuid-2"]
 
 
 class DummyDkControllerPartialFailure(DummyDkController):
@@ -150,16 +102,6 @@ def test_get_uuids_returns_dk_synthetic_uuid() -> None:
     coordinator.controller = DummyDkController()
 
     assert coordinator.get_uuids() == ["dk"]
-
-
-def test_get_uuids_delegates_for_de_mode() -> None:
-    """DE mode should delegate UUID retrieval to the DE controller."""
-
-    coordinator = object.__new__(IstaDataUpdateCoordinator)
-    coordinator._entry = DummyEntry(options={"URL": "de_url"}, data={})
-    coordinator.controller = DummyDeController()
-
-    assert coordinator.get_uuids() == ["de-uuid-1", "de-uuid-2"]
 
 
 def test_async_update_data_uses_dk_branch() -> None:

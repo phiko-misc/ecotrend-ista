@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-import datetime
 from datetime import timedelta
-import json
 import logging
-import os
 from typing import Any
 
-from pyecotrend_ista.helper_object_de import CustomRaw
-from pyecotrend_ista.pyecotrend_ista import PyEcotrendIsta
 try:
     from pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
 except ImportError:  # pragma: no cover - fallback for older library versions
@@ -45,39 +40,15 @@ from .const import (
     CONF_TYPE_HEATING_CASH_WEEK,
     CONF_TYPE_HEATING_CASH_MONTH,
     CONF_TYPE_HEATING_CASH_YEAR,
-    CONF_TYPE_WATER_CASH,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def create_directory_file(hass: HomeAssistant, consum_raw: CustomRaw, support_code: str):
-    """Create a directory and a file with JSON content."""
-    paths = [hass.config.path("www")]
-
-    def mkdir() -> None:
-        """Create directories if they do not exist."""
-        for path in paths:
-            if not os.path.exists(path):
-                _LOGGER.debug("Creating directory: %s", path)
-                os.makedirs(path, exist_ok=True)
-
-    def make_file() -> None:
-        """Create a JSON file with the data."""
-        file_name = f"{DOMAIN}_{support_code}.json"
-        media_path = hass.config.path("www")
-        json_object = json.dumps(consum_raw.to_dict(), indent=4)
-        with open(f"{media_path}/{file_name}", mode="w", encoding="utf-8") as f_lie:
-            f_lie.write(json_object)
-
-    await hass.async_add_executor_job(mkdir)
-    await hass.async_add_executor_job(make_file)
-
-
 class IstaDataUpdateCoordinator(DataUpdateCoordinator):
     """Coordinator for ista EcoTrend Version 3."""
 
-    controller: PyEcotrendIsta | PyEcotrendIstaDK
+    controller: PyEcotrendIstaDK
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize ista EcoTrend Version 3 data updater."""
@@ -91,9 +62,9 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     def set_controller(self) -> None:
-        """Set up the PyEcotrendIsta controller.
+        """Set up the Danish PyEcotrendIsta controller.
 
-        This method initializes the PyEcotrendIsta controller instance with the provided email, password,
+        This method initializes the controller with the provided username and password,
         and other necessary configurations.
         """
         data = {
@@ -108,7 +79,7 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _get_entry_url(self) -> str:
         """Return the selected login URL key for this entry."""
-        return self._entry.options.get(CONF_URL, self._entry.data.get(CONF_URL, "de_url"))
+        return self._entry.options.get(CONF_URL, self._entry.data.get(CONF_URL, "dk_url"))
 
     def _is_dk_url(self) -> bool:
         """Return whether this entry uses the DK backend."""
@@ -117,12 +88,9 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
     def get_uuids(self) -> list[str]:
         """Return available identifiers for entities.
 
-        DE accounts expose multiple consumption UUIDs. DK currently uses one logical endpoint set,
-        so we expose a synthetic single UUID.
+        DK uses one logical endpoint set, so we expose a synthetic single UUID.
         """
-        if self._is_dk_url():
-            return ["dk"]
-        return self.controller.get_uuids()
+        return ["dk"]
 
     @staticmethod
     def _extract_latest_numeric(records: Any, field: str) -> float | None:
@@ -206,7 +174,6 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
                 CONF_TYPE_HEATING_CONSUMPTION_MONTH: self._extract_latest_numeric(heat_consumption_month, "value"),
                 CONF_TYPE_HEATING_CONSUMPTION_YEAR: self._extract_latest_numeric(heat_consumption_year, "value"),
                 CONF_TYPE_HEATING_CASH_DAY: self._extract_latest_numeric(heat_economy_day, "priceValue"),
-                CONF_TYPE_WATER_CASH: self._extract_latest_numeric(heat_economy_day, "priceValue"),
                 CONF_TYPE_HEATING_CASH_BILLING: self._extract_latest_numeric(heat_economy_billing, "priceValue"),
                 CONF_TYPE_HEATING_CASH_WEEK: self._extract_latest_numeric(heat_economy_week, "priceValue"),
                 CONF_TYPE_HEATING_CASH_MONTH: self._extract_latest_numeric(heat_economy_month, "priceValue"),
@@ -229,33 +196,8 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
             if self.data is None:
                 self.data = {}
             await self.init()
-            if self._is_dk_url():
-                self.data = await self.hass.async_add_executor_job(self._fetch_dk_data)
-                self.logger.debug("Fetched DK data: %s", self.data)
-                self.async_set_updated_data(self.data)
-                return self.data
-
-            for uuid in self.get_uuids():
-                _consum_raw: dict[str, Any] = await self.hass.async_add_executor_job(
-                    self.controller.consum_raw,
-                    [
-                        datetime.datetime.now().year,
-                        datetime.datetime.now().year - 1,
-                    ],
-                    None,
-                    True,
-                    uuid,
-                )
-                if not isinstance(_consum_raw, dict):
-                    return self.data[uuid]
-                consum_raw: CustomRaw = CustomRaw.from_dict(_consum_raw)
-
-                await create_directory_file(
-                    self.hass,
-                    consum_raw,
-                    self.controller.get_support_code(),
-                )
-                self.data[uuid] = consum_raw
+            self.data = await self.hass.async_add_executor_job(self._fetch_dk_data)
+            self.logger.debug("Fetched DK data: %s", self.data)
             self.async_set_updated_data(self.data)
             return self.data
         except requests.Timeout:

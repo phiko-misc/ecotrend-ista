@@ -9,46 +9,27 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
-    SelectOptionDict,
-    SelectSelector,
-    SelectSelectorConfig,
-    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
 )
 
 from .const import (
-    CONF_MFA,
     CONF_UNIT,
     CONF_UNIT_HEATING,
     CONF_UNIT_WARMWATER,
     CONF_UPDATE_INTERVAL,
-    CONF_URL,
     CONF_YEAR,
     CONF_YEARMONTH,
 )
 
 URL_SELECTORS = {
-    "de_url": "https://ecotrend.ista.de/",
     "dk_url": "https://istaonlinebeta.dk/",
-    # "nl_url": "https://mijn.ista.nl/",
-    # "fr_url": "https://ma-consommation.ista.lu/",
 }
 
-URL_SELECTOR: SelectSelector = SelectSelector(
-    SelectSelectorConfig(
-        options=[SelectOptionDict(value=k, label=v) for k, v in URL_SELECTORS.items()],
-        multiple=False,
-        mode=SelectSelectorMode.DROPDOWN,
-    )
-)
-
 DATA_SCHEMA_EMAIL = {
-    vol.Required(CONF_EMAIL): TextSelector(TextSelectorConfig(type=TextSelectorType.EMAIL, multiline=False)),
+    vol.Required(CONF_EMAIL): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT, multiline=False)),
     vol.Required(CONF_PASSWORD): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD, multiline=False)),
-    vol.Required(CONF_URL, default="de_url"): URL_SELECTOR,
-    vol.Optional(CONF_MFA, default=""): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT, multiline=False)),
     vol.Required(CONF_UPDATE_INTERVAL, default=24): NumberSelector(
         NumberSelectorConfig(mode=NumberSelectorMode.SLIDER, min=1, max=24)
     ),

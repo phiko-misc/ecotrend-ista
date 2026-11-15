@@ -71,10 +71,6 @@ class DummyCoordinator:
         """No-op first refresh hook."""
 
 
-async def _noop_migrate(*_args: Any, **_kwargs: Any) -> bool:
-    return True
-
-
 def test_options_update_listener_triggers_reload() -> None:
     """Updating options should request a config entry reload."""
 
@@ -91,15 +87,7 @@ def test_dk_setup_and_reload_recreate_coordinator_without_migration(monkeypatch)
 
     hass = DummyHass()
     entry = DummyEntry("entry-dk")
-    migrate_calls: list[tuple[Any, ...]] = []
-
-    async def _track_migrate(*args: Any, **kwargs: Any) -> bool:
-        migrate_calls.append((*args, kwargs))
-        return True
-
     monkeypatch.setattr(integration, "IstaDataUpdateCoordinator", DummyCoordinator)
-    monkeypatch.setattr(integration, "_async_migrate_entries", _track_migrate)
-
     first_result = asyncio.run(integration.async_setup_entry(hass, entry))
     first_coordinator = hass.data[DOMAIN][entry.entry_id]
 
@@ -108,7 +96,6 @@ def test_dk_setup_and_reload_recreate_coordinator_without_migration(monkeypatch)
 
     assert first_result is True
     assert second_result is True
-    assert migrate_calls == []
     assert len(hass.config_entries.forward_calls) == 2
     assert first_coordinator is not second_coordinator
     assert first_coordinator.instance_id != second_coordinator.instance_id
