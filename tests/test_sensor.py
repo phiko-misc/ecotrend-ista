@@ -6,13 +6,19 @@ import asyncio
 from typing import Any
 
 from custom_components.ecotrend_ista.const import (
-    CONF_TYPE_ELECTRICITY_CONSUMPTION,
     CONF_TYPE_ELECTRICITY_CASH,
-    CONF_TYPE_HEATING_CONSUMPTION,
+    CONF_TYPE_ELECTRICITY_CONSUMPTION,
     CONF_TYPE_HEATING_CASH_DAY,
+    CONF_TYPE_HEATING_CONSUMPTION,
+    DOMAIN,
 )
-from custom_components.ecotrend_ista.const import DOMAIN
-from custom_components.ecotrend_ista.sensor import DK_SENSOR_TYPES, EcotrendDKSensor, async_setup_entry
+from custom_components.ecotrend_ista.sensor import (
+    DK_SENSOR_TYPES,
+    EcotrendDKMeterSensor,
+    EcotrendDKSensor,
+    EcotrendDKSmokeSensor,
+    async_setup_entry,
+)
 
 
 class DummyConfigEntry:
@@ -38,6 +44,36 @@ class DummyCoordinator:
                 "heat_unit": "Delinger",
                 "currency_unit": "DKK",
                 "user_info": {"Name": "DK User", "Language": "da-DK"},
+                "meters": [
+                    {
+                        "METER_ID": 123,
+                        "METER_NO": "M-123",
+                        "MeterText": "Electricity",
+                        "MeterType": "EL",
+                        "Unit": "kWh",
+                        "ROOM_DESCR": "Kitchen",
+                        "Reading_date": "2026-11-15",
+                        "Last_Meter_Reading": 42,
+                        "Last_Meter_Consumption": 5,
+                        "Activation_date": "2020-01-01",
+                        "Deactivation_date": "3000-01-01",
+                    },
+                    {
+                        "METER_ID": 456,
+                        "METER_NO": "M-456",
+                        "MeterText": "Smoke",
+                        "MeterType": "SMOKE",
+                        "Unit": " ",
+                        "ROOM_DESCR": "Hallway",
+                        "Message": "Battery low",
+                        "Headline": "Smoke detector status",
+                        "Reading_date": "2026-11-15",
+                        "Last_Meter_Reading": 0,
+                        "Last_Meter_Consumption": 0,
+                        "Activation_date": "2020-01-01",
+                        "Deactivation_date": "3000-01-01",
+                    },
+                ],
             }
         }
 
@@ -107,8 +143,40 @@ def test_async_setup_entry_creates_dk_sensors() -> None:
 
     asyncio.run(async_setup_entry(hass, entry, _add_entities))
 
-    assert len(captured_entities) == len(DK_SENSOR_TYPES)
-    assert all(isinstance(entity, EcotrendDKSensor) for entity in captured_entities)
-    assert {entity._attr_unique_id for entity in captured_entities} == {
+    assert len(captured_entities) == len(DK_SENSOR_TYPES) + 3
+    assert sum(isinstance(entity, EcotrendDKSensor) for entity in captured_entities) == len(DK_SENSOR_TYPES)
+    assert sum(isinstance(entity, EcotrendDKMeterSensor) for entity in captured_entities) == 2
+    assert sum(isinstance(entity, EcotrendDKSmokeSensor) for entity in captured_entities) == 1
+    assert {entity._attr_unique_id for entity in captured_entities if isinstance(entity, EcotrendDKSensor)} == {
         f"{item.key}_dk" for item in DK_SENSOR_TYPES
     }
+
+
+def test_dk_meter_sensor_exposes_reading_and_metadata() -> None:
+    """Meter diagnostic sensors should expose readings and identifying metadata."""
+
+    entry = DummyConfigEntry()
+    coordinator = DummyCoordinator(entry)
+    meter = coordinator.data["dk"]["meters"][0]
+
+    entity = EcotrendDKMeterSensor(coordinator, meter, 0)
+
+    assert entity.native_value == 42
+    assert entity.native_unit_of_measurement == "kWh"
+    assert entity.extra_state_attributes["meter_type"] == "EL"
+    assert entity.extra_state_attributes["room"] == "Kitchen"
+    assert entity._attr_unique_id == "meter_123_last_reading"
+
+
+def test_dk_smoke_sensor_exposes_api_status() -> None:
+    """Smoke detector sensors should expose raw API status text."""
+
+    entry = DummyConfigEntry()
+    coordinator = DummyCoordinator(entry)
+    meter = coordinator.data["dk"]["meters"][1]
+
+    entity = EcotrendDKSmokeSensor(coordinator, meter, 1)
+
+    assert entity.native_value == "Battery low"
+    assert entity.extra_state_attributes["headline"] == "Smoke detector status"
+    assert entity._attr_unique_id == "meter_456_status"

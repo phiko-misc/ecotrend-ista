@@ -5,11 +5,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-import pytest
-
 from custom_components.ecotrend_ista import coordinator as coordinator_module
-
 from custom_components.ecotrend_ista.coordinator import IstaDataUpdateCoordinator
+import pytest
 
 
 class DummyHass:
@@ -60,6 +58,22 @@ class DummyDkController:
     def get_user_info(self) -> dict[str, Any]:
         return {"Name": "DK User", "Language": "da-DK"}
 
+    def get_meters(self) -> dict[str, Any]:
+        return {
+            "Meters": {
+                "Value": [
+                    {
+                        "METER_ID": 123,
+                        "METER_NO": "M-123",
+                        "MeterText": "Electricity",
+                        "MeterType": "EL",
+                        "Unit": "kWh",
+                        "Last_Meter_Reading": 42,
+                    }
+                ]
+            }
+        }
+
 
 class DummyDkControllerPartialFailure(DummyDkController):
     """DK controller stand-in where one graph endpoint fails."""
@@ -84,6 +98,7 @@ def test_dk_fetch_data_maps_values_for_sensors() -> None:
     assert payload["dk"]["heat_unit"] == "Delinger"
     assert payload["dk"]["currency_unit"] == "DKK"
     assert payload["dk"]["user_info"]["Name"] == "DK User"
+    assert payload["dk"]["meters"][0]["METER_ID"] == 123
 
 
 def test_dk_fetch_data_handles_partial_endpoint_failures() -> None:

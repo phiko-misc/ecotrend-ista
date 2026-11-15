@@ -10,36 +10,37 @@ try:
     from pyecotrend_ista.pyecotrend_ista_dk import PyEcotrendIstaDK
 except ImportError:  # pragma: no cover - fallback for older library versions
     PyEcotrendIstaDK = Any  # type: ignore[assignment]
-import requests
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+import requests
 
 from .config_flow import login_account
-from .const import CONF_UPDATE_INTERVAL, CONF_URL, DOMAIN
 from .const import (
     CONF_TYPE_ELECTRICITY_CASH,
-    CONF_TYPE_ELECTRICITY_CASH_DAY,
     CONF_TYPE_ELECTRICITY_CASH_BILLING,
-    CONF_TYPE_ELECTRICITY_CASH_WEEK,
+    CONF_TYPE_ELECTRICITY_CASH_DAY,
     CONF_TYPE_ELECTRICITY_CASH_MONTH,
+    CONF_TYPE_ELECTRICITY_CASH_WEEK,
     CONF_TYPE_ELECTRICITY_CASH_YEAR,
     CONF_TYPE_ELECTRICITY_CONSUMPTION,
     CONF_TYPE_ELECTRICITY_CONSUMPTION_DAY,
-    CONF_TYPE_ELECTRICITY_CONSUMPTION_WEEK,
     CONF_TYPE_ELECTRICITY_CONSUMPTION_MONTH,
+    CONF_TYPE_ELECTRICITY_CONSUMPTION_WEEK,
     CONF_TYPE_ELECTRICITY_CONSUMPTION_YEAR,
+    CONF_TYPE_HEATING_CASH_BILLING,
+    CONF_TYPE_HEATING_CASH_DAY,
+    CONF_TYPE_HEATING_CASH_MONTH,
+    CONF_TYPE_HEATING_CASH_WEEK,
+    CONF_TYPE_HEATING_CASH_YEAR,
     CONF_TYPE_HEATING_CONSUMPTION,
     CONF_TYPE_HEATING_CONSUMPTION_DAY,
-    CONF_TYPE_HEATING_CONSUMPTION_WEEK,
     CONF_TYPE_HEATING_CONSUMPTION_MONTH,
+    CONF_TYPE_HEATING_CONSUMPTION_WEEK,
     CONF_TYPE_HEATING_CONSUMPTION_YEAR,
-    CONF_TYPE_HEATING_CASH_DAY,
-    CONF_TYPE_HEATING_CASH_BILLING,
-    CONF_TYPE_HEATING_CASH_WEEK,
-    CONF_TYPE_HEATING_CASH_MONTH,
-    CONF_TYPE_HEATING_CASH_YEAR,
+    CONF_UPDATE_INTERVAL,
+    CONF_URL,
+    DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -121,36 +122,44 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch the DK data shape used by DK sensor entities."""
         meter_types = self._safe_dk_call("get_meter_types", {})
         currency_unit = self._safe_dk_call("get_currency_code", "DKK")
-        
+
         # Electricity consumption
         electricity_consumption_billing = self._safe_dk_call("get_electricity_consumption_billing", [])
         electricity_consumption_day = self._safe_dk_call("get_electricity_consumption_day", [])
         electricity_consumption_week = self._safe_dk_call("get_electricity_consumption_week", [])
         electricity_consumption_month = self._safe_dk_call("get_electricity_consumption_month", [])
         electricity_consumption_year = self._safe_dk_call("get_electricity_consumption_year", [])
-        
+
         # Electricity costs
         electricity_economy_day = self._safe_dk_call("get_electricity_economy_day", [])
         electricity_economy_billing = self._safe_dk_call("get_electricity_economy_billing", [])
         electricity_economy_week = self._safe_dk_call("get_electricity_economy_week", [])
         electricity_economy_month = self._safe_dk_call("get_electricity_economy_month", [])
         electricity_economy_year = self._safe_dk_call("get_electricity_economy_year", [])
-        
+
         # Heat consumption
         heat_consumption_billing = self._safe_dk_call("get_heat_consumption_billing", [])
         heat_consumption_day = self._safe_dk_call("get_heat_consumption_day", [])
         heat_consumption_week = self._safe_dk_call("get_heat_consumption_week", [])
         heat_consumption_month = self._safe_dk_call("get_heat_consumption_month", [])
         heat_consumption_year = self._safe_dk_call("get_heat_consumption_year", [])
-        
+
         # Heat costs
         heat_economy_day = self._safe_dk_call("get_heat_economy_day", [])
         heat_economy_billing = self._safe_dk_call("get_heat_economy_billing", [])
         heat_economy_week = self._safe_dk_call("get_heat_economy_week", [])
         heat_economy_month = self._safe_dk_call("get_heat_economy_month", [])
         heat_economy_year = self._safe_dk_call("get_heat_economy_year", [])
-        
+
         user_info = self._safe_dk_call("get_user_info", {})
+        meters_response = self._safe_dk_call("get_meters", {})
+        meters = []
+        if isinstance(meters_response, dict):
+            meter_container = meters_response.get("Meters", {})
+            if isinstance(meter_container, dict):
+                meter_values = meter_container.get("Value", meter_container.get("value", []))
+                if isinstance(meter_values, list):
+                    meters = meter_values
 
         electricity_unit = (meter_types.get("electricity") or {}).get("unit")
         heat_unit = (meter_types.get("heat") or {}).get("unit")
@@ -182,6 +191,7 @@ class IstaDataUpdateCoordinator(DataUpdateCoordinator):
                 "heat_unit": heat_unit,
                 "currency_unit": currency_unit,
                 "user_info": user_info,
+                "meters": meters,
             }
         }
 
